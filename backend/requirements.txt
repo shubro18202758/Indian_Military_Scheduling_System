@@ -1,0 +1,12 @@
+fastapi
+uvicorn[standard]
+sqlalchemy
+asyncpg
+greenlet
+pydantic-settings
+python-dotenv
+alembic
+ortools
+redis
+celery
+geopy
