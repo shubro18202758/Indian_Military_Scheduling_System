@@ -2,81 +2,129 @@ import asyncio
 import sys
 import os
 import random
+import math
+from datetime import datetime
 
 # Add the backend root directory to sys.path
 backend_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, backend_root)
 
-from app.core.database import SessionLocal, engine
+from app.core.database import SessionLocal
 from app.models.asset import TransportAsset
 from app.models.route import Route
 from sqlalchemy import select
 
-# Helper to interpolate between two points
-def interpolate(start, end, fraction):
-    return start + (end - start) * fraction
+# --- CONSTANTS ---
+CONVOY_SPEED_KMH = 60.0 # Speed in km/h
+UPDATE_INTERVAL_SEC = 2.0 # Update DB every X seconds
+
+def haversine_distance(lat1, lon1, lat2, lon2):
+    """ Calculate distance in km between two points """
+    R = 6371.0 # Earth radius in km
+    dlat = math.radians(lat2 - lat1)
+    dlon = math.radians(lon2 - lon1)
+    a = math.sin(dlat / 2)**2 + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon / 2)**2
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+    return R * c
 
 async def simulate():
-    print("Starting Simulation Service...")
+    print(f"Starting Realistic Simulation Engine...")
+    print(f"Target Speed: ~{CONVOY_SPEED_KMH} km/h")
     
-    async with SessionLocal() as db:
-        # Get the NH-44 Route
-        result = await db.execute(select(Route).where(Route.name.contains("NH-44")))
-        route = result.scalars().first()
-        
-        if not route:
-            print("No Route found. running seed first...")
-            return
+    # In-memory monitoring of asset progress
+    # { asset_id: { 'route_nodes': [], 'current_index': 0, 'progress_to_next': 0.0, 'total_segment_dist': 0.0 } }
+    asset_states = {}
 
-        waypoints = route.waypoints
-        
-        # Get Assets that we want to move
-        assets_res = await db.execute(select(TransportAsset))
-        assets = assets_res.scalars().all()
-        
-        print(f"Simulating movement for {len(assets)} assets along {route.name}...")
-        
-        # Infinite Grid loop for simulation
-        step = 0
-        total_steps = 100
-        
-        # Assign each asset a 'progress' along the route (0.0 to 1.0)
-        # For simplicity, we just bounce them back and forth between waypoints
-        
-        while True:
-            for i, asset in enumerate(assets):
-                # Pick a segment based on time
-                # Total segments = len(waypoints) - 1
-                segment_count = len(waypoints) - 1
+    while True:
+        async with SessionLocal() as db:
+            # 1. Fetch Assets and Route (NH-44 for demo)
+            route_res = await db.execute(select(Route).where(Route.name.contains("NH-44")))
+            route = route_res.scalars().first()
+            
+            assets_res = await db.execute(select(TransportAsset))
+            assets = assets_res.scalars().all()
+
+            if not route:
+                print("Waiting for route data...")
+                await asyncio.sleep(5)
+                continue
+
+            waypoints = route.waypoints
+            if not waypoints or len(waypoints) < 2:
+                print("Route has insufficient waypoints.")
+                continue
+
+            for asset in assets:
+                state = asset_states.get(asset.id)
                 
-                # Make them move at different speeds
-                speed_factor = (i + 1) * 0.05 
+                # Initialize state if new
+                if not state:
+                    state = {
+                        'current_index': 0, # Index of the waypoint strictly BEHIND the asset
+                        'segment_progress_km': 0.0 # distance traveled in current segment
+                    }
+                    # Try to snap to nearest waypoint if initializing (simplified: just start at 0)
+                    asset_states[asset.id] = state
+
+                # Determine current segment
+                idx = state['current_index']
                 
-                # distinct progress for each asset
-                progress_raw = (step * speed_factor) % segment_count
-                segment_idx = int(progress_raw)
-                segment_fraction = progress_raw - segment_idx
+                # If we are at the end of the route, bounce back or stop? Let's generic 'patrol' (bounce)
+                direction = 1 # 1 = forward, -1 = backward (logic simplified: loop back to start for demo)
                 
-                start_pt = waypoints[segment_idx]
-                end_pt = waypoints[segment_idx + 1]
+                if idx >= len(waypoints) - 1:
+                    # Reset to start
+                    state['current_index'] = 0
+                    state['segment_progress_km'] = 0.0
+                    idx = 0
                 
-                # Calculate new lat/long
-                new_lat = interpolate(start_pt[0], end_pt[0], segment_fraction)
-                new_long = interpolate(start_pt[1], end_pt[1], segment_fraction)
+                start_pt = waypoints[idx]
+                end_pt = waypoints[idx + 1]
                 
-                # Update Asset
-                asset.current_lat = new_lat
-                asset.current_long = new_long
+                # Calculate total distance of this segment (km)
+                segment_dist_km = haversine_distance(start_pt[0], start_pt[1], end_pt[0], end_pt[1])
                 
-                # Randomize fuel consumption
-                if random.random() > 0.9:
-                    asset.fuel_status = max(0, asset.fuel_status - 0.5)
+                # Avoid division by zero for tiny segments
+                if segment_dist_km < 0.01:
+                    state['current_index'] += 1
+                    state['segment_progress_km'] = 0.0
+                    continue
+
+                # Move vehicle
+                # Distance to move = Speed (km/h) * Time (h)
+                # Add randomness: +/- 10% speed variance
+                speed_variance = random.uniform(0.9, 1.1)
+                dist_moved_km = (CONVOY_SPEED_KMH * speed_variance) * (UPDATE_INTERVAL_SEC / 3600.0)
+                
+                state['segment_progress_km'] += dist_moved_km
+                
+                # Check if we reached the next waypoint
+                if state['segment_progress_km'] >= segment_dist_km:
+                    # Overshot? Move to next segment
+                    excess_km = state['segment_progress_km'] - segment_dist_km
+                    state['current_index'] += 1
+                    state['segment_progress_km'] = excess_km # Carry over progress
+                    
+                    # Update physics snap for DB
+                    asset.current_lat = end_pt[0]
+                    asset.current_long = end_pt[1]
+                else:
+                    # Interpolate position
+                    fraction = state['segment_progress_km'] / segment_dist_km
+                    new_lat = start_pt[0] + (end_pt[0] - start_pt[0]) * fraction
+                    new_long = start_pt[1] + (end_pt[1] - start_pt[1]) * fraction
+                    
+                    asset.current_lat = new_lat
+                    asset.current_long = new_long
+
+                # Fuel Consumption logic
+                if random.random() > 0.95:
+                    asset.fuel_status = max(0, asset.fuel_status - 0.1)
 
             await db.commit()
-            print(f"Step {step}: Updated positions.")
-            
-            step += 1
-            await asyncio.sleep(1) # Update every second
+            # print(f"Updated {len(assets)} assets. Time: {datetime.now().strftime('%H:%M:%S')}")
+        
+        await asyncio.sleep(UPDATE_INTERVAL_SEC)
 
 if __name__ == "__main__":
     try:

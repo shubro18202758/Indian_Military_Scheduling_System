@@ -6,6 +6,7 @@ from typing import List
 from app.core.database import get_db
 from app.models.route import Route
 from app.schemas.route import RouteCreate, Route as RouteSchema
+from app.services.risk_analysis import RouteRiskService
 
 router = APIRouter()
 
@@ -28,3 +29,10 @@ async def read_routes(skip: int = 0, limit: int = 100, db: AsyncSession = Depend
     result = await db.execute(select(Route).offset(skip).limit(limit))
     routes = result.scalars().all()
     return routes
+
+@router.post("/analyze-risk")
+async def trigger_risk_analysis(db: AsyncSession = Depends(get_db)):
+    """
+    Triggers the AI Risk Analysis engine to re-evaluate route validities.
+    """
+    return await RouteRiskService.analyze_risks(db)

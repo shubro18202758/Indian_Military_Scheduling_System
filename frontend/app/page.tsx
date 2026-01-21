@@ -29,21 +29,32 @@ interface Convoy {
   status: string;
 }
 
+interface Route {
+  id: number;
+  name: string;
+  waypoints: number[][];
+  risk_level: string;
+  status: string;
+}
+
 export default function Home() {
   const [assets, setAssets] = useState<Asset[]>([]);
   const [convoys, setConvoys] = useState<Convoy[]>([]);
+  const [routes, setRoutes] = useState<Route[]>([]);
   const [activeTab, setActiveTab] = useState<'assets' | 'convoys'>('assets');
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [assetRes, convoyRes] = await Promise.all([
+        const [assetRes, convoyRes, routeRes] = await Promise.all([
           fetch(`${API_BASE}/assets/`),
-          fetch(`${API_BASE}/convoys/`)
+          fetch(`${API_BASE}/convoys/`),
+          fetch(`${API_BASE}/routes/`)
         ]);
         if (assetRes.ok) setAssets(await assetRes.json());
         if (convoyRes.ok) setConvoys(await convoyRes.json());
+        if (routeRes.ok) setRoutes(await routeRes.json());
       } catch (e) {
         console.error('API Error:', e);
       }
@@ -65,7 +76,7 @@ export default function Home() {
     }}>
       {/* MAP - Full Screen Background */}
       <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 1 }}>
-        <MapComponent assets={assets} />
+        <MapComponent assets={assets} routes={routes} />
       </div>
 
       {/* HEADER BAR */}
@@ -113,14 +124,42 @@ export default function Home() {
             24
           </span>
         </div>
-        <div style={{
-          background: 'rgba(0,0,0,0.5)',
-          padding: '5px 15px',
-          borderRadius: 20,
-          color: '#94a3b8',
-          fontSize: 12
-        }}>
-          {assets.length} UNITS TRACKED
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+          <button
+            onClick={async () => {
+              try {
+                await fetch(`${API_BASE}/routes/analyze-risk`, { method: 'POST' });
+                // Res is handled by auto-refresh
+              } catch (e) {
+                console.error(e);
+              }
+            }}
+            style={{
+              background: 'rgba(239, 68, 68, 0.2)',
+              border: '1px solid rgba(239, 68, 68, 0.4)',
+              color: '#ef4444',
+              padding: '5px 12px',
+              borderRadius: 4,
+              fontSize: 11,
+              fontWeight: 'bold',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 5
+            }}
+          >
+            <span></span> SCAN THREATS
+          </button>
+
+          <div style={{
+            background: 'rgba(0,0,0,0.5)',
+            padding: '5px 15px',
+            borderRadius: 20,
+            color: '#94a3b8',
+            fontSize: 12
+          }}>
+            {assets.length} UNITS TRACKED
+          </div>
         </div>
       </div>
 
