@@ -1,4 +1,4 @@
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Optional
 
 class Settings(BaseSettings):
@@ -21,7 +21,6 @@ class Settings(BaseSettings):
         # Construct the async PostgreSQL connection string
         return f"postgresql+asyncpg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_SERVER}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
 
-    class Config:
-        case_sensitive = True
+    model_config = SettingsConfigDict(env_file=".env")
 
 settings = Settings()

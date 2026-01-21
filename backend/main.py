@@ -2,9 +2,10 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.core.database import engine, Base
-from app.api.endpoints import assets, convoys
+from app.api.endpoints import assets, convoys, routes
 import app.models.asset 
 import app.models.convoy # Register Convoy model
+import app.models.route # Register Route model
 
 # Initialize the FastAPI application
 app = FastAPI(title=settings.PROJECT_NAME)
@@ -32,6 +33,7 @@ async def startup():
 # Register Routers
 app.include_router(assets.router, prefix=f"{settings.API_V1_STR}/assets", tags=["assets"])
 app.include_router(convoys.router, prefix=f"{settings.API_V1_STR}/convoys", tags=["convoys"])
+app.include_router(routes.router, prefix=f"{settings.API_V1_STR}/routes", tags=["routes"])
 
 # Basic Health Check Endpoint
 @app.get("/")
