@@ -98,7 +98,19 @@ export default function Home() {
             {sidebarOpen ? '✕' : '☰'}
           </button>
           <span style={{ color: '#fff', fontWeight: 'bold', fontSize: 18 }}>
-            Transport<span style={{ color: '#eab308' }}>Radar</span>24
+            Transport
+            <span style={{
+              backgroundImage: 'linear-gradient(135deg, #79d835ff 20%, #197b2090 40%, #708238 60%, #1a1a1a 80%)',
+              backgroundSize: '300% 300%',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              fontWeight: '900',
+              marginLeft: 2,
+              filter: 'drop-shadow(0 1px 1px rgba(0,0,0,0.5))'
+            }}>
+              Radar
+            </span>
+            24
           </span>
         </div>
         <div style={{
