@@ -15,3 +15,10 @@ class Route(RouteBase):
 
     class Config:
         from_attributes = True
+
+class RoutePlanRequest(BaseModel):
+    name: str
+    start_lat: float
+    start_long: float
+    end_lat: float
+    end_long: float

@@ -52,8 +52,8 @@ async def simulate():
     while True:
         try:
             async with SessionLocal() as db:
-                # 1. Fetch High Fidelity Route
-                route_res = await db.execute(select(Route).where(Route.name.contains("Sat-Nav")))
+                # 1. Fetch LATEST Route (User created or Seeded)
+                route_res = await db.execute(select(Route).order_by(Route.id.desc()).limit(1))
                 route = route_res.scalars().first()
                 
                 assets_res = await db.execute(select(TransportAsset))

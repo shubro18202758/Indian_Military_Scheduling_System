@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
+import DashboardOverlay from '@/components/DashboardOverlay';
 
 // Dynamic import for map (must be client-side only)
 const MapComponent = dynamic(() => import('@/components/Map'), {
@@ -293,6 +294,9 @@ export default function Home() {
           <span style={{ color: '#10b981' }}>● LIVE</span>
         </div>
       </div>
+
+      {/* MANUAL ENTRY OVERLAY */}
+      <DashboardOverlay />
     </div>
   );
 }

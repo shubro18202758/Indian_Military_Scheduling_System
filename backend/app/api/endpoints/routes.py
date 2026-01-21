@@ -5,7 +5,7 @@ from typing import List
 
 from app.core.database import get_db
 from app.models.route import Route
-from app.schemas.route import RouteCreate, Route as RouteSchema
+from app.schemas.route import RouteCreate, Route as RouteSchema, RoutePlanRequest
 from app.services.risk_analysis import RouteRiskService
 
 router = APIRouter()
@@ -36,3 +36,30 @@ async def trigger_risk_analysis(db: AsyncSession = Depends(get_db)):
     Triggers the AI Risk Analysis engine to re-evaluate route validities.
     """
     return await RouteRiskService.analyze_risks(db)
+
+@router.post("/plan", response_model=RouteSchema)
+async def plan_route(plan: RoutePlanRequest, db: AsyncSession = Depends(get_db)):
+    """
+    Plan a new route using OSRM High-Fidelity API.
+    """
+    from app.services.routing import fetch_osrm_route
+    
+    start = [plan.start_lat, plan.start_long]
+    end = [plan.end_lat, plan.end_long]
+    
+    waypoints = await fetch_osrm_route(start, end)
+    
+    if not waypoints:
+        # Fallback to straight line if API fails
+        waypoints = [start, end]
+        
+    new_route = Route(
+        name=plan.name,
+        risk_level="LOW", # Default
+        status="OPEN",
+        waypoints=waypoints
+    )
+    db.add(new_route)
+    await db.commit()
+    await db.refresh(new_route)
+    return new_route
