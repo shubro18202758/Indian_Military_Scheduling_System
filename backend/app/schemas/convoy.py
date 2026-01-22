@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime
 
 class ConvoyBase(BaseModel):
@@ -9,7 +9,12 @@ class ConvoyBase(BaseModel):
     status: str = "PLANNED"
 
 class ConvoyCreate(ConvoyBase):
-    pass
+    asset_ids: List[int] = []
+    # Optional coords for auto-route planning
+    start_lat: Optional[float] = None
+    start_long: Optional[float] = None
+    end_lat: Optional[float] = None
+    end_long: Optional[float] = None
 
 class Convoy(ConvoyBase):
     id: int

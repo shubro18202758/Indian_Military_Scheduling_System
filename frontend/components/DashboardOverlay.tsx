@@ -20,8 +20,52 @@ export default function DashboardOverlay() {
     const [convoyForm, setConvoyForm] = useState({
         name: '',
         start_location: 'Jammu',
-        end_location: 'Srinagar'
+        end_location: '',
+        start_lat: 32.7266, // Default Jammu
+        start_long: 74.8570,
+        end_lat: 0,
+        end_long: 0,
+        asset_ids: [] as number[]
     });
+
+    const [assets, setAssets] = useState<any[]>([]);
+    const [startSearchResults, setStartSearchResults] = useState<any[]>([]);
+    const [searchResults, setSearchResults] = useState<any[]>([]); // end location results
+    const [isSearching, setIsSearching] = useState(false);
+
+    // Fetch assets when modal opens
+    React.useEffect(() => {
+        if (activeModal === 'convoy') {
+            fetch('http://localhost:8000/api/v1/assets/')
+                .then(res => res.json())
+                .then(data => setAssets(data))
+                .catch(err => console.error("Failed to load assets", err));
+        }
+    }, [activeModal]);
+
+    const handleSearchLocation = async (query: string, type: 'start' | 'end') => {
+        if (!query || query.length < 3) return;
+        setIsSearching(true);
+        try {
+            const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${query}`);
+            const data = await res.json();
+            if (type === 'start') setStartSearchResults(data);
+            else setSearchResults(data);
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setIsSearching(false);
+        }
+    };
+
+    const toggleAssetSelection = (id: number) => {
+        const current = convoyForm.asset_ids;
+        if (current.includes(id)) {
+            setConvoyForm({ ...convoyForm, asset_ids: current.filter(x => x !== id) });
+        } else {
+            setConvoyForm({ ...convoyForm, asset_ids: [...current, id] });
+        }
+    };
 
     // Route Form State
     const [routeForm, setRouteForm] = useState({
@@ -276,7 +320,7 @@ export default function DashboardOverlay() {
                                 </button>
                             </form>
                         ) : activeModal === 'convoy' ? (
-                            <form onSubmit={handleCreateConvoy} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                            <form onSubmit={handleCreateConvoy} style={{ display: 'flex', flexDirection: 'column', gap: '15px', height: '100%', overflowY: 'auto' }}>
                                 <div>
                                     <label style={{ fontSize: '12px', color: '#94a3b8', display: 'block', marginBottom: '5px' }}>Convoy ID</label>
                                     <input
@@ -288,30 +332,137 @@ export default function DashboardOverlay() {
                                         style={{ width: '100%', padding: '10px', background: '#1e293b', border: '1px solid #334155', borderRadius: '6px', color: 'white' }}
                                     />
                                 </div>
+
+                                {/* Start Location Search */}
                                 <div>
-                                    <label style={{ fontSize: '12px', color: '#94a3b8', display: 'block', marginBottom: '5px' }}>Start Base</label>
-                                    <input
-                                        type="text"
-                                        required
-                                        value={convoyForm.start_location}
-                                        onChange={e => setConvoyForm({ ...convoyForm, start_location: e.target.value })}
-                                        style={{ width: '100%', padding: '10px', background: '#1e293b', border: '1px solid #334155', borderRadius: '6px', color: 'white' }}
-                                    />
+                                    <label style={{ fontSize: '12px', color: '#94a3b8', display: 'block', marginBottom: '5px' }}>Start Point (Search)</label>
+                                    <div style={{ display: 'flex', gap: '8px' }}>
+                                        <input
+                                            type="text"
+                                            value={convoyForm.start_location}
+                                            onChange={e => setConvoyForm({ ...convoyForm, start_location: e.target.value })}
+                                            placeholder="Start City..."
+                                            style={{ flex: 1, padding: '10px', background: '#1e293b', border: '1px solid #334155', borderRadius: '6px', color: 'white' }}
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => handleSearchLocation(convoyForm.start_location, 'start')}
+                                            style={{ padding: '0 15px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer' }}
+                                        >
+                                            Search
+                                        </button>
+                                    </div>
+                                    {/* Start Results */}
+                                    {startSearchResults.length > 0 && (
+                                        <div style={{ marginTop: '5px', maxHeight: '100px', overflowY: 'auto', background: '#0f172a', border: '1px solid #334155', borderRadius: '6px' }}>
+                                            {startSearchResults.map((res, idx) => (
+                                                <div
+                                                    key={idx}
+                                                    onClick={() => {
+                                                        setConvoyForm({
+                                                            ...convoyForm,
+                                                            start_location: res.display_name.split(',')[0],
+                                                            start_lat: parseFloat(res.lat),
+                                                            start_long: parseFloat(res.lon)
+                                                        });
+                                                        setStartSearchResults([]);
+                                                    }}
+                                                    style={{ padding: '8px', borderBottom: '1px solid #1e293b', cursor: 'pointer', fontSize: '12px', color: '#cbd5e1' }}
+                                                    className="hover:bg-slate-800"
+                                                >
+                                                    {res.display_name}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                    {convoyForm.start_lat !== 0 && (
+                                        <div style={{ fontSize: '10px', color: '#10b981', marginTop: '4px' }}>
+                                            Start: {convoyForm.start_lat.toFixed(4)}, {convoyForm.start_long.toFixed(4)}
+                                        </div>
+                                    )}
                                 </div>
+
+                                {/* Destination Search */}
                                 <div>
-                                    <label style={{ fontSize: '12px', color: '#94a3b8', display: 'block', marginBottom: '5px' }}>Destination</label>
-                                    <input
-                                        type="text"
-                                        required
-                                        value={convoyForm.end_location}
-                                        onChange={e => setConvoyForm({ ...convoyForm, end_location: e.target.value })}
-                                        style={{ width: '100%', padding: '10px', background: '#1e293b', border: '1px solid #334155', borderRadius: '6px', color: 'white' }}
-                                    />
+                                    <label style={{ fontSize: '12px', color: '#94a3b8', display: 'block', marginBottom: '5px' }}>Destination (Search)</label>
+                                    <div style={{ display: 'flex', gap: '8px' }}>
+                                        <input
+                                            type="text"
+                                            value={convoyForm.end_location}
+                                            onChange={e => setConvoyForm({ ...convoyForm, end_location: e.target.value })}
+                                            placeholder="End City..."
+                                            style={{ flex: 1, padding: '10px', background: '#1e293b', border: '1px solid #334155', borderRadius: '6px', color: 'white' }}
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => handleSearchLocation(convoyForm.end_location, 'end')}
+                                            style={{ padding: '0 15px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer' }}
+                                        >
+                                            Search
+                                        </button>
+                                    </div>
+
+                                    {/* End Results */}
+                                    {searchResults.length > 0 && (
+                                        <div style={{ marginTop: '5px', maxHeight: '100px', overflowY: 'auto', background: '#0f172a', border: '1px solid #334155', borderRadius: '6px' }}>
+                                            {searchResults.map((res, idx) => (
+                                                <div
+                                                    key={idx}
+                                                    onClick={() => {
+                                                        setConvoyForm({
+                                                            ...convoyForm,
+                                                            end_location: res.display_name.split(',')[0],
+                                                            end_lat: parseFloat(res.lat),
+                                                            end_long: parseFloat(res.lon)
+                                                        });
+                                                        setSearchResults([]);
+                                                    }}
+                                                    style={{ padding: '8px', borderBottom: '1px solid #1e293b', cursor: 'pointer', fontSize: '12px', color: '#cbd5e1' }}
+                                                    className="hover:bg-slate-800"
+                                                >
+                                                    {res.display_name}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                    {convoyForm.end_lat !== 0 && (
+                                        <div style={{ fontSize: '10px', color: '#10b981', marginTop: '4px' }}>
+                                            End: {convoyForm.end_lat.toFixed(4)}, {convoyForm.end_long.toFixed(4)}
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Asset Allocation with Scroll */}
+                                <div style={{ flex: 1, minHeight: '150px', display: 'flex', flexDirection: 'column' }}>
+                                    <label style={{ fontSize: '12px', color: '#94a3b8', display: 'block', marginBottom: '5px' }}>Allocate Available Assets ({convoyForm.asset_ids.length} selected)</label>
+                                    <div style={{ flex: 1, overflowY: 'auto', border: '1px solid #334155', borderRadius: '6px', padding: '8px', background: '#020617' }}>
+                                        {assets.length === 0 ? <div style={{ color: '#64748b', fontSize: '12px' }}>No assets found</div> : null}
+                                        {assets.map(asset => (
+                                            <div
+                                                key={asset.id}
+                                                onClick={() => toggleAssetSelection(asset.id)}
+                                                style={{
+                                                    display: 'flex', alignItems: 'center', gap: '10px', padding: '8px',
+                                                    background: convoyForm.asset_ids.includes(asset.id) ? '#3730a3' : 'transparent',
+                                                    borderRadius: '4px', cursor: 'pointer', marginBottom: '4px'
+                                                }}
+                                            >
+                                                <div style={{
+                                                    width: '16px', height: '16px', borderRadius: '4px', border: '1px solid #64748b',
+                                                    background: convoyForm.asset_ids.includes(asset.id) ? '#4f46e5' : 'transparent'
+                                                }} />
+                                                <div>
+                                                    <div style={{ fontSize: '13px', color: 'white' }}>{asset.name}</div>
+                                                    <div style={{ fontSize: '11px', color: '#94a3b8' }}>{asset.asset_type} • {asset.capacity_tons}T</div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
                                 </div>
 
                                 <button type="submit" style={{ marginTop: '10px', backgroundColor: '#eab308', color: 'black', border: 'none', padding: '12px', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
                                     <Save size={18} />
-                                    Create Plan
+                                    Create & Plan Route
                                 </button>
                             </form>
                         ) : (

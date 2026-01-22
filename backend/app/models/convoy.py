@@ -19,8 +19,8 @@ class Convoy(Base):
     start_time = Column(DateTime, default=datetime.utcnow)
     status = Column(String, default="PLANNED", doc="PLANNED, IN_TRANSIT, COMPLETED, HALTED")
     
-    # Relationships
-    # For now, we'll simpler store a list of asset IDs or a relationship
-    # This is a One-to-Many relationship (One Convoy has Many Assets) usually, 
-    # but an Asset might belong to different convoys over time. 
-    # For simplicity in this foundational phase, let's just track the convoy metadata.
+    # Link to a specific route plan
+    route_id = Column(Integer, ForeignKey("routes.id"), nullable=True)
+    route = relationship("app.models.route.Route") # Deferred import string to avoid circulars if possible
+
+    assets = relationship("app.models.asset.TransportAsset", back_populates="convoy")

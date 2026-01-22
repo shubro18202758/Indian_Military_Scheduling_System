@@ -84,6 +84,16 @@ async def seed_data():
         db.add(route_main)
         print("Added Precision Route.")
 
+        # Commit route first to get ID
+        await db.flush()
+
+        # Convoy
+        convoy1 = Convoy(name="Air-Link-Supply-01", start_location="Jammu Airport", end_location="Srinagar Airport", status="IN_TRANSIT", start_time=datetime.utcnow(), route_id=route_main.id)
+        db.add(convoy1)
+        
+        # Commit convoy to get ID
+        await db.flush()
+
         # Calculate mid-point for asset placement
         mid_idx = len(waypoints_high_fidelity) // 2
         mid_pt = waypoints_high_fidelity[mid_idx]
@@ -92,12 +102,14 @@ async def seed_data():
         assets = [
             TransportAsset(name="IXJ-01 (Heavy)", asset_type="Tatra 8x8", capacity_tons=10.0, is_available=True, current_lat=start_pt[0], current_long=start_pt[1], fuel_status=100.0),
             TransportAsset(name="SXR-01 (Rapid)", asset_type="Maruti Gypsy", capacity_tons=0.5, is_available=True, current_lat=end_pt[0], current_long=end_pt[1], fuel_status=100.0),
-            TransportAsset(name="CVY-Alpha Lead", asset_type="Ashok Leyland Stallion", capacity_tons=2.5, is_available=False, current_lat=mid_pt[0], current_long=mid_pt[1], fuel_status=65.0),
+            # Extra Available Assets for Testing
+            TransportAsset(name="IXJ-Heavy-01", asset_type="ALS Stallion", capacity_tons=5.0, is_available=True, current_lat=start_pt[0], current_long=start_pt[1], fuel_status=100.0),
+            TransportAsset(name="IXJ-Heavy-02", asset_type="ALS Stallion", capacity_tons=5.0, is_available=True, current_lat=start_pt[0], current_long=start_pt[1], fuel_status=90.0),
+            TransportAsset(name="IXJ-Tanker-01", asset_type="Fuel Tanker", capacity_tons=12.0, is_available=True, current_lat=start_pt[0], current_long=start_pt[1], fuel_status=100.0),
+            TransportAsset(name="QRT-01", asset_type="Light Vehicle", capacity_tons=0.4, is_available=True, current_lat=start_pt[0], current_long=start_pt[1], fuel_status=100.0),
+            TransportAsset(name="QRT-02", asset_type="Light Vehicle", capacity_tons=0.4, is_available=True, current_lat=start_pt[0], current_long=start_pt[1], fuel_status=100.0),
+            TransportAsset(name="CVY-Alpha Lead", asset_type="Ashok Leyland Stallion", capacity_tons=2.5, is_available=False, current_lat=mid_pt[0], current_long=mid_pt[1], fuel_status=65.0, convoy_id=convoy1.id),
         ]
-        db.add_all(assets)
-
-        convoy1 = Convoy(name="Air-Link-Supply-01", start_location="Jammu Airport", end_location="Srinagar Airport", status="IN_TRANSIT", start_time=datetime.utcnow())
-        db.add(convoy1)
 
         await db.commit()
         print("Seeding Complete. High-Fidelity Routing Active.")
