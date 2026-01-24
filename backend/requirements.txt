@@ -1,13 +1,32 @@
+# FastAPI and Web
 fastapi
 uvicorn[standard]
+pydantic-settings
+python-dotenv
+
+# Database
 sqlalchemy
 asyncpg
 greenlet
-ortools
-pydantic-settings
-python-dotenv
 alembic
-ortools
+
+# Caching and Task Queue
 redis
 celery
+
+# AI and Optimization
+ortools
+scikit-learn
+numpy
+
+# GPU Acceleration (CUDA)
+# Note: Install torch with CUDA separately: pip install torch --index-url https://download.pytorch.org/whl/cu121
+# cupy-cuda12x  # Uncomment for CuPy GPU acceleration
+
+# HTTP Client
+httpx
 geopy
+
+# Utilities
+python-multipart
+aiofiles

@@ -3,6 +3,8 @@
 import React, { useState } from 'react';
 import { Plus, Truck, MapPin, X, Save, Navigation } from 'lucide-react';
 
+const API_V1 = '/api/proxy/v1';
+
 export default function DashboardOverlay() {
     const [isOpen, setIsOpen] = useState(false);
     const [activeModal, setActiveModal] = useState<'none' | 'asset' | 'convoy' | 'route'>('none');
@@ -36,7 +38,7 @@ export default function DashboardOverlay() {
     // Fetch assets when modal opens
     React.useEffect(() => {
         if (activeModal === 'convoy') {
-            fetch('http://localhost:8000/api/v1/assets/')
+            fetch(`${API_V1}/assets/`)
                 .then(res => res.json())
                 .then(data => setAssets(data))
                 .catch(err => console.error("Failed to load assets", err));
@@ -79,7 +81,7 @@ export default function DashboardOverlay() {
     const handleCreateAsset = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
-            const res = await fetch('http://localhost:8000/api/v1/assets/', {
+            const res = await fetch(`${API_V1}/assets/`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -107,7 +109,7 @@ export default function DashboardOverlay() {
     const handleCreateConvoy = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
-            const res = await fetch('http://localhost:8000/api/v1/convoys/', {
+            const res = await fetch(`${API_V1}/convoys/`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(convoyForm)
@@ -128,7 +130,7 @@ export default function DashboardOverlay() {
     const handleCreateRoute = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
-            const res = await fetch('http://localhost:8000/api/v1/routes/plan', {
+            const res = await fetch(`${API_V1}/routes/plan`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(routeForm)
@@ -148,15 +150,15 @@ export default function DashboardOverlay() {
 
     return (
         <>
-            {/* FAB (Floating Action Button) */}
+            {/* FAB (Floating Action Button) - Bottom Left */}
             <div style={{
                 position: 'fixed',
-                top: '80px',
-                right: '30px',
+                bottom: '80px',
+                left: '280px',
                 zIndex: 2000,
                 display: 'flex',
                 flexDirection: 'column',
-                alignItems: 'end',
+                alignItems: 'start',
                 gap: '10px'
             }}>
                 {isOpen && (
