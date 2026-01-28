@@ -11,14 +11,14 @@ export async function GET(
   // Preserve query parameters
   const searchParams = request.nextUrl.searchParams.toString();
   const url = `${BACKEND_URL}/api/${path}${searchParams ? '?' + searchParams : ''}`;
-  
+
   try {
     const response = await fetch(url, {
       headers: {
         'Content-Type': 'application/json',
       },
     });
-    
+
     const data = await response.json();
     return NextResponse.json(data, { status: response.status });
   } catch (error) {
@@ -36,7 +36,7 @@ export async function POST(
   // Preserve query parameters
   const searchParams = request.nextUrl.searchParams.toString();
   const url = `${BACKEND_URL}/api/${path}${searchParams ? '?' + searchParams : ''}`;
-  
+
   // Handle optional body - some endpoints don't require a body
   let body = null;
   try {
@@ -47,7 +47,7 @@ export async function POST(
   } catch {
     // No body or invalid JSON, that's fine for some endpoints
   }
-  
+
   try {
     const response = await fetch(url, {
       method: 'POST',
@@ -56,7 +56,7 @@ export async function POST(
       },
       body: body ? JSON.stringify(body) : undefined,
     });
-    
+
     const data = await response.json();
     return NextResponse.json(data, { status: response.status });
   } catch (error) {
@@ -73,7 +73,7 @@ export async function PUT(
   const path = resolvedParams.path.join('/');
   const searchParams = request.nextUrl.searchParams.toString();
   const url = `${BACKEND_URL}/api/${path}${searchParams ? '?' + searchParams : ''}`;
-  
+
   let body = null;
   try {
     const text = await request.text();
@@ -83,7 +83,7 @@ export async function PUT(
   } catch {
     // No body or invalid JSON
   }
-  
+
   try {
     const response = await fetch(url, {
       method: 'PUT',
@@ -92,7 +92,7 @@ export async function PUT(
       },
       body: body ? JSON.stringify(body) : undefined,
     });
-    
+
     const data = await response.json();
     return NextResponse.json(data, { status: response.status });
   } catch (error) {
@@ -108,7 +108,7 @@ export async function DELETE(
   const resolvedParams = await params;
   const path = resolvedParams.path.join('/');
   const url = `${BACKEND_URL}/api/${path}`;
-  
+
   try {
     const response = await fetch(url, {
       method: 'DELETE',
@@ -116,7 +116,7 @@ export async function DELETE(
         'Content-Type': 'application/json',
       },
     });
-    
+
     const data = await response.json();
     return NextResponse.json(data, { status: response.status });
   } catch (error) {

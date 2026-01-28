@@ -1,7 +1,9 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import ConvoyTrackingPanel from './ConvoyTrackingPanel';
+import ConvoyTrackingPanelEnhanced from './ConvoyTrackingPanelEnhanced';
+import TacticalMetricsHUDEnhanced from './TacticalMetricsHUDEnhanced';
+import TacticalRouteAnalytics from './TacticalRouteAnalytics';
 
 const API_V1 = '/api/proxy/v1';
 
@@ -258,10 +260,10 @@ interface CommandCenterAdvancedProps {
 // MAIN COMPONENT
 // ============================================================================
 
-export default function CommandCenterAdvanced({ 
-  onVehicleSelect, 
+export default function CommandCenterAdvanced({
+  onVehicleSelect,
   onRouteSelect,
-  selectedVehicleId 
+  selectedVehicleId
 }: CommandCenterAdvancedProps) {
   // State
   const [vehicles, setVehicles] = useState<VehicleTelemetry[]>([]);
@@ -269,13 +271,13 @@ export default function CommandCenterAdvanced({
   const [events, setEvents] = useState<ScenarioEvent[]>([]);
   const [recommendations, setRecommendations] = useState<AIRecommendation[]>([]);
   const [advancedMetrics, setAdvancedMetrics] = useState<Record<number, AdvancedMetrics>>({});
-  
+
   const [selectedVehicle, setSelectedVehicle] = useState<VehicleTelemetry | null>(null);
   const [selectedRoute, setSelectedRoute] = useState<RouteDefinition | null>(null);
-  
+
   const [activeTab, setActiveTab] = useState<'vehicles' | 'routes' | 'metrics' | 'tracking'>('vehicles');
   const [rightPanelTab, setRightPanelTab] = useState<'threats' | 'ai' | 'events'>('threats');
-  
+
   const [simState, setSimState] = useState<SimState>({
     isRunning: false,
     isPaused: false,
@@ -289,7 +291,7 @@ export default function CommandCenterAdvanced({
     eventsActive: 0,
     aiRecommendationsIssued: 0
   });
-  
+
   const [showThreatAlert, setShowThreatAlert] = useState(false);
   const [currentThreat, setCurrentThreat] = useState<ScenarioEvent | null>(null);
   const [aiStatus, setAiStatus] = useState<{ available: boolean; provider: string; model: string }>({
@@ -297,9 +299,9 @@ export default function CommandCenterAdvanced({
     provider: 'HEURISTIC',
     model: 'GUARDIAN_HEURISTIC_v2.0'
   });
-  
+
   const [recentLogs, setRecentLogs] = useState<Array<{ type: string; message: string; time: Date; severity?: string }>>([]);
-  
+
   // Refs
   const tickIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const eventIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -308,7 +310,7 @@ export default function CommandCenterAdvanced({
   // ============================================================================
   // LOGGING
   // ============================================================================
-  
+
   const addLog = useCallback((type: string, message: string, severity?: string) => {
     setRecentLogs(prev => [{
       type,
@@ -354,7 +356,7 @@ export default function CommandCenterAdvanced({
       if (res.ok) {
         const data = await res.json();
         const newEvents: ScenarioEvent[] = data.events || [];
-        
+
         // Detect new critical events
         newEvents.forEach(event => {
           const existing = events.find(e => e.event_id === event.event_id);
@@ -365,7 +367,7 @@ export default function CommandCenterAdvanced({
             setTimeout(() => setShowThreatAlert(false), 5000);
           }
         });
-        
+
         setEvents(newEvents);
         setSimState(prev => ({ ...prev, eventsActive: newEvents.length }));
       }
@@ -408,21 +410,21 @@ export default function CommandCenterAdvanced({
 
   const simulationTick = useCallback(async () => {
     try {
-      const res = await fetch(`${API_V1}/advanced/simulation/tick-advanced`, { 
+      const res = await fetch(`${API_V1}/advanced/simulation/tick-advanced`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' }
       });
       if (res.ok) {
         const data = await res.json();
-        
+
         // Handle AI recommendations from tick
         if (data.ai_recommendations && data.ai_recommendations.length > 0) {
           setRecommendations(prev => [...data.ai_recommendations, ...prev].slice(0, 10));
-          setSimState(prev => ({ 
-            ...prev, 
-            aiRecommendationsIssued: prev.aiRecommendationsIssued + data.ai_recommendations.length 
+          setSimState(prev => ({
+            ...prev,
+            aiRecommendationsIssued: prev.aiRecommendationsIssued + data.ai_recommendations.length
           }));
-          
+
           data.ai_recommendations.forEach((rec: AIRecommendation) => {
             addLog('AI_REC', `${rec.primary_action}: ${rec.reasoning?.substring(0, 50)}...`, 'HIGH');
           });
@@ -437,14 +439,14 @@ export default function CommandCenterAdvanced({
 
   const generateEvent = useCallback(async () => {
     if (!simState.isRunning) return;
-    
+
     // Pick a random route to generate event on
     const activeRoutes = routes.filter(r => r.status === 'ACTIVE');
     if (activeRoutes.length === 0) return;
-    
+
     const route = activeRoutes[Math.floor(Math.random() * activeRoutes.length)];
     const waypoint = route.waypoints[Math.floor(Math.random() * route.waypoints.length)];
-    
+
     try {
       const res = await fetch(`${API_V1}/advanced/scenario/generate`, {
         method: 'POST',
@@ -458,7 +460,7 @@ export default function CommandCenterAdvanced({
           route_ids: [route.route_id]
         })
       });
-      
+
       if (res.ok) {
         const data = await res.json();
         if (data.event_id) {
@@ -475,7 +477,7 @@ export default function CommandCenterAdvanced({
   const startAdvancedSimulation = useCallback(async () => {
     addLog('SYSTEM', `ADVANCED COMMAND CENTER ONLINE`, 'LOW');
     addLog('SYSTEM', `Scenario: ${simState.scenario}`, 'LOW');
-    
+
     try {
       // Generate routes first
       const routesRes = await fetch(`${API_V1}/advanced/routes/scenario/${simState.scenario}`);
@@ -484,7 +486,7 @@ export default function CommandCenterAdvanced({
         setRoutes(data.routes || []);
         addLog('ROUTES', `${(data.routes || []).length} routes generated`, 'LOW');
       }
-      
+
       // Start advanced simulation
       const simRes = await fetch(`${API_V1}/advanced/simulation/start-advanced`, {
         method: 'POST',
@@ -496,21 +498,21 @@ export default function CommandCenterAdvanced({
           generate_threats: true
         })
       });
-      
+
       if (simRes.ok) {
         const simData = await simRes.json();
         addLog('CONVOY', `${simData.convoys?.length || 0} convoys activated`, 'LOW');
-        
+
         if (simData.initial_events) {
           simData.initial_events.forEach((e: ScenarioEvent) => {
             addLog('SCENARIO', `Initial: ${e.title}`, e.severity);
           });
         }
       }
-      
+
       // Start regular demo for fallback
       await fetch(`${API_V1}/vehicles/start-demo?speed_multiplier=2`, { method: 'POST' });
-      
+
       setSimState(prev => ({
         ...prev,
         isRunning: true,
@@ -520,10 +522,10 @@ export default function CommandCenterAdvanced({
         obstaclesGenerated: 0,
         obstaclesResolved: 0
       }));
-      
+
       // Start tick interval
       tickIntervalRef.current = setInterval(simulationTick, 500);
-      
+
       // Start event generation
       const scheduleEvent = () => {
         const delay = 8000 + Math.random() * 12000;
@@ -533,17 +535,17 @@ export default function CommandCenterAdvanced({
         }, delay);
       };
       setTimeout(scheduleEvent, 5000);
-      
+
       // Timer
       timerRef.current = setInterval(() => {
         setSimState(prev => ({ ...prev, elapsedSeconds: prev.elapsedSeconds + 1 }));
       }, 1000);
-      
+
       // Initial fetches
       await fetchVehicles();
       await fetchEvents();
       await fetchAIStatus();
-      
+
     } catch (e) {
       addLog('ERROR', 'Failed to start simulation', 'CRITICAL');
     }
@@ -553,13 +555,13 @@ export default function CommandCenterAdvanced({
     if (tickIntervalRef.current) clearInterval(tickIntervalRef.current);
     if (eventIntervalRef.current) clearTimeout(eventIntervalRef.current);
     if (timerRef.current) clearInterval(timerRef.current);
-    
+
     try {
       await fetch(`${API_V1}/vehicles/stop-demo`, { method: 'POST' });
     } catch (e) {
       // Silent fail
     }
-    
+
     setSimState(prev => ({ ...prev, isRunning: false, isPaused: false }));
     addLog('SYSTEM', 'Simulation terminated', 'LOW');
   }, [addLog]);
@@ -582,13 +584,13 @@ export default function CommandCenterAdvanced({
           conditions: { weather: 'CLEAR', visibility_km: 10 }
         })
       });
-      
+
       if (res.ok) {
         const rec = await res.json();
         setRecommendations(prev => [rec, ...prev].slice(0, 10));
-        setSimState(prev => ({ 
-          ...prev, 
-          aiRecommendationsIssued: prev.aiRecommendationsIssued + 1 
+        setSimState(prev => ({
+          ...prev,
+          aiRecommendationsIssued: prev.aiRecommendationsIssued + 1
         }));
         addLog('AI_REC', `${rec.primary_action}: ${rec.reasoning}`, 'HIGH');
       }
@@ -609,10 +611,30 @@ export default function CommandCenterAdvanced({
     };
   }, []);
 
+  // AUTO-START simulation on component mount
+  useEffect(() => {
+    const autoStartTimer = setTimeout(() => {
+      if (!simState.isRunning) {
+        startAdvancedSimulation();
+      }
+    }, 1500); // Small delay to let component fully initialize
+
+    return () => clearTimeout(autoStartTimer);
+  }, []); // Run only on mount
+
   useEffect(() => {
     fetchAIStatus();
     fetchVehicles();
-  }, [fetchAIStatus, fetchVehicles]);
+    fetchRoutes();
+    
+    // Always poll for vehicle updates regardless of simulation state
+    const vehiclePoll = setInterval(() => {
+      fetchVehicles();
+    }, 1000); // Poll vehicles every 1 second for smoother updates
+    
+    return () => clearInterval(vehiclePoll);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (simState.isRunning) {
@@ -622,7 +644,8 @@ export default function CommandCenterAdvanced({
       }, 3000);
       return () => clearInterval(poll);
     }
-  }, [simState.isRunning, fetchEvents, fetchRoutes]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [simState.isRunning]);
 
   // Fetch advanced metrics for selected vehicle
   useEffect(() => {
@@ -631,7 +654,8 @@ export default function CommandCenterAdvanced({
       const interval = setInterval(() => fetchAdvancedMetrics(selectedVehicle.id), 2000);
       return () => clearInterval(interval);
     }
-  }, [selectedVehicle, fetchAdvancedMetrics]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedVehicle?.id]);
 
   // ============================================================================
   // RENDER
@@ -642,7 +666,7 @@ export default function CommandCenterAdvanced({
       {/* THREAT ALERT OVERLAY */}
       {showThreatAlert && currentThreat && (
         <div className="fixed inset-0 z-[300] pointer-events-none flex items-start justify-center pt-20">
-          <div 
+          <div
             className="px-8 py-4 rounded-lg"
             style={{
               background: 'rgba(0,0,0,0.95)',
@@ -658,9 +682,9 @@ export default function CommandCenterAdvanced({
                 <div className="text-white text-xl font-bold">{currentThreat.title}</div>
                 <div className="text-gray-400 text-sm">{currentThreat.description}</div>
               </div>
-              <div 
+              <div
                 className="px-3 py-1 rounded text-sm font-bold"
-                style={{ 
+                style={{
                   background: getSeverityConfig(currentThreat.severity).bg,
                   color: getSeverityConfig(currentThreat.severity).color
                 }}
@@ -692,11 +716,10 @@ export default function CommandCenterAdvanced({
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`flex-1 py-3 text-xs font-bold uppercase tracking-wider transition-all ${
-                activeTab === tab 
-                  ? 'text-green-400 border-b-2 border-green-400 bg-green-900/20' 
-                  : 'text-gray-500 hover:text-gray-300'
-              }`}
+              className={`flex-1 py-3 text-xs font-bold uppercase tracking-wider transition-all ${activeTab === tab
+                ? 'text-green-400 border-b-2 border-green-400 bg-green-900/20'
+                : 'text-gray-500 hover:text-gray-300'
+                }`}
             >
               {tab === 'vehicles' ? '🚛 Vehicles' : tab === 'routes' ? '🗺️ Routes' : tab === 'metrics' ? '📊 Metrics' : '📡 Tracking'}
             </button>
@@ -713,22 +736,22 @@ export default function CommandCenterAdvanced({
             </div>
             <div className="flex-1 overflow-y-auto">
               {vehicles.map(vehicle => (
-                <div 
+                <div
                   key={vehicle.id}
                   onClick={() => {
                     setSelectedVehicle(vehicle);
                     onVehicleSelect?.(vehicle);
+                    setActiveTab('metrics'); // Switch to metrics tab when vehicle is selected
                   }}
-                  className={`px-4 py-3 border-b border-gray-800/50 cursor-pointer transition-all hover:bg-gray-800/50 ${
-                    selectedVehicle?.id === vehicle.id ? 'bg-green-900/30 border-l-2 border-l-green-500' : ''
-                  }`}
+                  className={`px-4 py-3 border-b border-gray-800/50 cursor-pointer transition-all hover:bg-gray-800/50 ${selectedVehicle?.id === vehicle.id ? 'bg-green-900/30 border-l-2 border-l-green-500' : ''
+                    }`}
                 >
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
                       <span className="w-2 h-2 rounded-full" style={{ background: getStatusColor(vehicle.status) }} />
                       <span className="text-white font-bold text-sm">{vehicle.name}</span>
                     </div>
-                    <span className="text-xs px-2 py-0.5 rounded" style={{ 
+                    <span className="text-xs px-2 py-0.5 rounded" style={{
                       background: getStatusColor(vehicle.status) + '20',
                       color: getStatusColor(vehicle.status)
                     }}>
@@ -771,22 +794,24 @@ export default function CommandCenterAdvanced({
             </div>
             <div className="flex-1 overflow-y-auto">
               {routes.map(route => (
-                <div 
+                <div
                   key={route.route_id}
                   onClick={() => {
                     setSelectedRoute(route);
                     onRouteSelect?.(route);
+                    // Clear vehicle selection to show route analytics instead
+                    setSelectedVehicle(null);
+                    setActiveTab('metrics');
                   }}
-                  className={`px-4 py-3 border-b border-gray-800/50 cursor-pointer transition-all hover:bg-gray-800/50 ${
-                    selectedRoute?.route_id === route.route_id ? 'bg-green-900/30 border-l-2 border-l-green-500' : ''
-                  }`}
+                  className={`px-4 py-3 border-b border-gray-800/50 cursor-pointer transition-all hover:bg-gray-800/50 ${selectedRoute?.route_id === route.route_id ? 'bg-green-900/30 border-l-2 border-l-green-500' : ''
+                    }`}
                 >
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
                       <div className="w-3 h-3 rounded" style={{ background: getRouteColor(route.category) }} />
                       <span className="text-white font-bold text-sm">{route.name}</span>
                     </div>
-                    <span className="text-xs px-2 py-0.5 rounded" style={{ 
+                    <span className="text-xs px-2 py-0.5 rounded" style={{
                       background: getThreatLevelColor(route.threat_level) + '30',
                       color: getThreatLevelColor(route.threat_level)
                     }}>
@@ -823,64 +848,46 @@ export default function CommandCenterAdvanced({
           </>
         )}
 
-        {/* METRICS TAB */}
-        {activeTab === 'metrics' && selectedVehicle && advancedMetrics[selectedVehicle.id] && (
-          <div className="flex-1 overflow-y-auto p-4">
-            <div className="text-green-400 font-bold mb-4">{selectedVehicle.name} - REAL-TIME METRICS</div>
-            
-            {/* Engine Metrics */}
-            <div className="bg-gray-900/50 rounded-lg p-3 mb-3">
-              <div className="text-xs text-gray-500 font-bold mb-2">🔧 ENGINE</div>
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                <div><span className="text-gray-500">Temp:</span> <span className="text-orange-400">{advancedMetrics[selectedVehicle.id].engine?.temperature_celsius?.toFixed(1)}°C</span></div>
-                <div><span className="text-gray-500">RPM:</span> <span className="text-green-400">{advancedMetrics[selectedVehicle.id].engine?.rpm?.toFixed(0)}</span></div>
-                <div><span className="text-gray-500">Oil:</span> <span className="text-yellow-400">{advancedMetrics[selectedVehicle.id].engine?.oil_pressure_psi?.toFixed(0)} psi</span></div>
-                <div><span className="text-gray-500">Load:</span> <span className="text-blue-400">{advancedMetrics[selectedVehicle.id].engine?.load_percent?.toFixed(0)}%</span></div>
-                <div><span className="text-gray-500">Health:</span> <span className="text-green-400">{advancedMetrics[selectedVehicle.id].engine?.health_score?.toFixed(0)}%</span></div>
-                <div><span className="text-gray-500">Maint:</span> <span className={advancedMetrics[selectedVehicle.id].engine?.needs_maintenance ? 'text-red-400' : 'text-green-400'}>{advancedMetrics[selectedVehicle.id].engine?.needs_maintenance ? 'NEEDED' : 'OK'}</span></div>
-              </div>
-            </div>
-
-            {/* GPS Metrics */}
-            <div className="bg-gray-900/50 rounded-lg p-3 mb-3">
-              <div className="text-xs text-gray-500 font-bold mb-2">📍 GPS</div>
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                <div><span className="text-gray-500">Sats:</span> <span className="text-green-400">{advancedMetrics[selectedVehicle.id].gps?.satellites_visible}</span></div>
-                <div><span className="text-gray-500">Acc:</span> <span className="text-yellow-400">{advancedMetrics[selectedVehicle.id].gps?.accuracy_m?.toFixed(1)}m</span></div>
-                <div><span className="text-gray-500">Alt:</span> <span className="text-blue-400">{advancedMetrics[selectedVehicle.id].gps?.altitude_m?.toFixed(0)}m</span></div>
-                <div><span className="text-gray-500">Signal:</span> <span className="text-green-400">{advancedMetrics[selectedVehicle.id].gps?.signal_quality}</span></div>
-              </div>
-            </div>
-
-            {/* Fuel Metrics */}
-            <div className="bg-gray-900/50 rounded-lg p-3 mb-3">
-              <div className="text-xs text-gray-500 font-bold mb-2">⛽ FUEL</div>
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                <div><span className="text-gray-500">Level:</span> <span className={advancedMetrics[selectedVehicle.id].fuel?.percent_remaining < 25 ? 'text-red-400' : 'text-green-400'}>{advancedMetrics[selectedVehicle.id].fuel?.percent_remaining?.toFixed(0)}%</span></div>
-                <div><span className="text-gray-500">Rate:</span> <span className="text-yellow-400">{advancedMetrics[selectedVehicle.id].fuel?.consumption_rate_lph?.toFixed(1)} L/h</span></div>
-                <div><span className="text-gray-500">Range:</span> <span className="text-blue-400">{advancedMetrics[selectedVehicle.id].fuel?.estimated_range_km?.toFixed(0)} km</span></div>
-                <div><span className="text-gray-500">Time:</span> <span className="text-cyan-400">{advancedMetrics[selectedVehicle.id].fuel?.time_to_empty_hours?.toFixed(1)} h</span></div>
-              </div>
-            </div>
-
-            {/* Comms Metrics */}
-            <div className="bg-gray-900/50 rounded-lg p-3">
-              <div className="text-xs text-gray-500 font-bold mb-2">📡 COMMS</div>
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                <div><span className="text-gray-500">Signal:</span> <span className="text-green-400">{advancedMetrics[selectedVehicle.id].communication?.radio_signal_strength?.toFixed(0)}%</span></div>
-                <div><span className="text-gray-500">Latency:</span> <span className="text-yellow-400">{advancedMetrics[selectedVehicle.id].communication?.latency_ms?.toFixed(0)} ms</span></div>
-                <div><span className="text-gray-500">Status:</span> <span className="text-green-400">{advancedMetrics[selectedVehicle.id].communication?.comms_status}</span></div>
-                <div><span className="text-gray-500">Encrypt:</span> <span className={advancedMetrics[selectedVehicle.id].communication?.encryption_active ? 'text-green-400' : 'text-red-400'}>{advancedMetrics[selectedVehicle.id].communication?.encryption_active ? 'ACTIVE' : 'OFF'}</span></div>
-              </div>
-            </div>
+        {/* METRICS TAB - Uses Tactical Metrics HUD Enhanced (Indian Army themed, ultra-high-frequency) */}
+        {activeTab === 'metrics' && selectedVehicle && (
+          <div className="flex-1 overflow-hidden">
+            <TacticalMetricsHUDEnhanced
+              vehicleId={selectedVehicle.id}
+              vehicleName={selectedVehicle.name}
+              mode="expanded"
+              operationZone="KASHMIR"
+              isSimulationRunning={simState.isRunning}
+              onClose={() => setSelectedVehicle(null)}
+            />
           </div>
         )}
-        
-        {activeTab === 'metrics' && (!selectedVehicle || !advancedMetrics[selectedVehicle.id]) && (
+
+        {/* METRICS TAB - Route Mode uses Tactical Route Analytics (full details) */}
+        {activeTab === 'metrics' && !selectedVehicle && selectedRoute && (
+          <div className="flex-1 overflow-hidden">
+            <TacticalRouteAnalytics
+              route={{
+                route_id: selectedRoute.route_id,
+                name: selectedRoute.name,
+                category: selectedRoute.category,
+                origin: selectedRoute.origin,
+                destination: selectedRoute.destination,
+                distance_km: selectedRoute.distance_km,
+                estimated_time_hours: selectedRoute.estimated_time_hours,
+                threat_level: selectedRoute.threat_level,
+                terrain_types: selectedRoute.terrain_zones
+              }}
+              isSimulationRunning={simState.isRunning}
+              onClose={() => setSelectedRoute(null)}
+            />
+          </div>
+        )}
+
+        {activeTab === 'metrics' && !selectedVehicle && !selectedRoute && (
           <div className="flex-1 flex items-center justify-center text-gray-500">
             <div className="text-center">
               <div className="text-3xl mb-2">📊</div>
-              <div>Select a vehicle to view metrics</div>
+              <div>Select a vehicle or route to view metrics</div>
             </div>
           </div>
         )}
@@ -888,7 +895,7 @@ export default function CommandCenterAdvanced({
         {/* TRACKING TAB - FlightRadar24 Style Convoy Tracking */}
         {activeTab === 'tracking' && (
           <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-            <ConvoyTrackingPanel />
+            <ConvoyTrackingPanelEnhanced />
           </div>
         )}
       </div>
@@ -913,11 +920,10 @@ export default function CommandCenterAdvanced({
             <button
               key={tab}
               onClick={() => setRightPanelTab(tab)}
-              className={`flex-1 py-3 text-xs font-bold uppercase tracking-wider transition-all ${
-                rightPanelTab === tab 
-                  ? 'text-red-400 border-b-2 border-red-400 bg-red-900/20' 
-                  : 'text-gray-500 hover:text-gray-300'
-              }`}
+              className={`flex-1 py-3 text-xs font-bold uppercase tracking-wider transition-all ${rightPanelTab === tab
+                ? 'text-red-400 border-b-2 border-red-400 bg-red-900/20'
+                : 'text-gray-500 hover:text-gray-300'
+                }`}
             >
               {tab === 'threats' ? '🎯 Threats' : tab === 'ai' ? '🤖 AI' : '📋 Log'}
             </button>
@@ -938,7 +944,7 @@ export default function CommandCenterAdvanced({
               events.map(event => {
                 const config = getSeverityConfig(event.severity);
                 return (
-                  <div 
+                  <div
                     key={event.event_id}
                     className="p-3 mb-2 rounded-lg"
                     style={{
@@ -951,7 +957,7 @@ export default function CommandCenterAdvanced({
                       <div className="flex-1">
                         <div className="flex items-center justify-between">
                           <span className="text-white font-bold text-sm">{event.title}</span>
-                          <span 
+                          <span
                             className="text-xs px-2 py-0.5 rounded font-bold"
                             style={{ background: config.color, color: 'black' }}
                           >
@@ -1040,14 +1046,13 @@ export default function CommandCenterAdvanced({
             {recentLogs.map((log, idx) => (
               <div key={idx} className="px-2 py-1.5 text-xs border-b border-gray-900/50">
                 <div className="flex items-center gap-2">
-                  <span className={`${
-                    log.type === 'THREAT' ? 'text-red-400' : 
-                    log.type === 'AI_REC' ? 'text-green-400' : 
-                    log.type === 'SCENARIO' ? 'text-orange-400' : 
-                    log.type === 'CONVOY' ? 'text-green-400' : 
-                    log.type === 'ROUTES' ? 'text-blue-400' : 
-                    'text-gray-400'
-                  }`}>
+                  <span className={`${log.type === 'THREAT' ? 'text-red-400' :
+                    log.type === 'AI_REC' ? 'text-green-400' :
+                      log.type === 'SCENARIO' ? 'text-orange-400' :
+                        log.type === 'CONVOY' ? 'text-green-400' :
+                          log.type === 'ROUTES' ? 'text-blue-400' :
+                            'text-gray-400'
+                    }`}>
                     [{log.type}]
                   </span>
                   <span className="text-gray-300 flex-1 truncate">{log.message}</span>
@@ -1082,7 +1087,7 @@ export default function CommandCenterAdvanced({
               {simState.isRunning ? 'SIMULATION ACTIVE' : 'STANDBY'}
             </span>
           </div>
-          
+
           {simState.isRunning && (
             <div className="flex items-center gap-4 text-sm">
               <div className="text-gray-400">
@@ -1109,14 +1114,11 @@ export default function CommandCenterAdvanced({
           {!simState.isRunning ? (
             <>
               <select
-                value={simState.scenario}
-                onChange={(e) => setSimState(prev => ({ ...prev, scenario: e.target.value }))}
+                value="KASHMIR_OPS"
+                onChange={() => setSimState(prev => ({ ...prev, scenario: 'KASHMIR_OPS' }))}
                 className="bg-gray-800 border border-gray-600 text-white px-3 py-2 rounded text-sm"
               >
-                <option value="LADAKH_SUPPLY">Ladakh Supply Run</option>
                 <option value="KASHMIR_OPS">Kashmir Operations</option>
-                <option value="DESERT_EXERCISE">Desert Exercise</option>
-                <option value="EMERGENCY_RESPONSE">Emergency Response</option>
               </select>
               <button
                 onClick={startAdvancedSimulation}

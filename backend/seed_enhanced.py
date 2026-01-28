@@ -74,8 +74,13 @@ async def seed_data():
     print("=" * 60)
     
     print("\n[1/7] Resetting Database...")
+    from sqlalchemy import text
     async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
+        # Drop all tables using CASCADE via raw SQL
+        await conn.execute(text("DROP SCHEMA public CASCADE"))
+        await conn.execute(text("CREATE SCHEMA public"))
+        await conn.execute(text("GRANT ALL ON SCHEMA public TO postgres"))
+        await conn.execute(text("GRANT ALL ON SCHEMA public TO public"))
         await conn.run_sync(Base.metadata.create_all)
     print("    ✓ Database reset complete")
     
@@ -185,32 +190,13 @@ async def seed_data():
             
             asset = TransportAsset(
                 name=f"{spec['type'][:3].upper()}-{str(i+1).zfill(3)} ({callsign})",
-                callsign=callsign,
-                registration_number=f"JK-{random.randint(10, 99)}-{random.choice('ABCDEFGHIJ')}-{random.randint(1000, 9999)}",
                 asset_type=spec["type"],
-                category=spec["category"],
                 capacity_tons=spec["capacity_tons"],
-                capacity_volume_m3=spec["capacity_volume"],
-                max_personnel=spec["max_personnel"],
                 is_available=random.random() > 0.2,  # 80% available
-                operational_status=random.choices(
-                    ["READY", "DEPLOYED", "MAINTENANCE"],
-                    weights=[0.7, 0.2, 0.1]
-                )[0],
                 current_lat=lat,
                 current_long=lon,
+                bearing=random.uniform(0, 360),
                 fuel_status=random.uniform(40, 100),
-                fuel_type=spec["fuel_type"],
-                fuel_capacity_liters=random.choice([100, 150, 200, 300]),
-                fuel_consumption_km_per_liter=random.uniform(2.5, 5.0),
-                max_speed_kmh=spec["max_speed"],
-                avg_speed_plains_kmh=spec["plains_speed"],
-                avg_speed_mountain_kmh=spec["mountain_speed"],
-                assigned_unit=random.choice(UNITS),
-                home_base=random.choice(["Jammu Cantt", "Udhampur Garrison", "Nagrota", "Pathankot"]),
-                has_radio=True,
-                has_gps=random.random() > 0.1,
-                total_km_traveled=random.uniform(0, 50000),
             )
             db.add(asset)
             created_assets.append(asset)
@@ -332,38 +318,15 @@ async def seed_data():
         for i, template in enumerate(convoy_templates):
             route = created_routes[0]  # Main route
             
-            # Random position along route
-            progress = random.uniform(0.1, 0.8)
-            wp_idx = int(len(route.waypoints) * progress)
-            position = route.waypoints[wp_idx]
-            
             start_time = datetime.utcnow() - timedelta(hours=random.randint(0, 6))
             
             convoy = Convoy(
                 name=template["name"],
                 start_location=route.start_name,
                 end_location=route.end_name,
-                start_lat=route.start_lat,
-                start_long=route.start_long,
-                end_lat=route.end_lat,
-                end_long=route.end_long,
-                current_lat=position[0],
-                current_long=position[1],
                 start_time=start_time,
                 route_id=route.id,
                 status=random.choice(["IN_TRANSIT", "IN_TRANSIT", "PLANNED", "HALTED"]),
-                priority_level=template["priority"],
-                priority_score={"CRITICAL": 85, "HIGH": 70, "NORMAL": 50, "LOW": 30}[template["priority"]],
-                load_type=template["load"],
-                total_load_tons=random.uniform(5, 30),
-                personnel_count=template["personnel"],
-                is_hazardous=template["hazardous"],
-                convoy_speed_kmh=random.choice([35, 40, 45]),
-                inter_vehicle_distance_m=random.choice([30, 50, 75]),
-                total_vehicles=random.randint(3, 10),
-                total_distance_km=route.total_distance_km,
-                commanding_unit=random.choice(UNITS),
-                terrain_type=route.terrain_type,
             )
             db.add(convoy)
             created_convoys.append(convoy)
@@ -382,7 +345,9 @@ async def seed_data():
         assignment_count = 0
         
         for convoy in created_convoys:
-            num_assets = random.randint(3, min(6, len(available_assets)))
+            if len(available_assets) < 2:
+                break  # Not enough assets to assign
+            num_assets = random.randint(2, min(4, len(available_assets)))
             assigned = random.sample(available_assets, num_assets)
             
             roles = ["LEAD", "CARGO", "CARGO", "CARGO", "ESCORT", "TAIL"]
@@ -401,9 +366,9 @@ async def seed_data():
                 )
                 db.add(ca)
                 
-                # Update asset status
-                asset.operational_status = "DEPLOYED"
-                asset.current_convoy_id = convoy.id
+                # Update asset convoy link
+                asset.convoy_id = convoy.id
+                asset.is_available = False
                 available_assets.remove(asset)
                 assignment_count += 1
         

@@ -127,6 +127,74 @@ body {
   }
 }
 
+/* Spin animation for loading states */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* AI glow pulse animation */
+@keyframes ai-pulse {
+  0%, 100% {
+    box-shadow: 0 0 10px rgba(139, 92, 246, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(139, 92, 246, 0.6);
+  }
+}
+
+/* Military camouflage animated background */
+@keyframes camo-shift {
+  0%, 100% {
+    background-position: 0% 0%;
+  }
+  50% {
+    background-position: 100% 100%;
+  }
+}
+
+/* Indian Army Smooth Camouflage Pattern - Gradient based */
+.army-camo-bg {
+  background: 
+    /* Layer 1: Base gradient */
+    linear-gradient(135deg, 
+      #1a2410 0%, 
+      #283618 25%, 
+      #1a2410 50%, 
+      #2d3a1a 75%, 
+      #1a2410 100%),
+    /* Layer 2: Soft organic shapes using radial gradients */
+    radial-gradient(ellipse 120% 80% at 20% 30%, rgba(74, 93, 35, 0.5) 0%, transparent 50%),
+    radial-gradient(ellipse 100% 60% at 70% 20%, rgba(40, 54, 24, 0.6) 0%, transparent 45%),
+    radial-gradient(ellipse 80% 120% at 80% 70%, rgba(92, 64, 51, 0.4) 0%, transparent 50%),
+    radial-gradient(ellipse 90% 70% at 30% 80%, rgba(45, 58, 26, 0.5) 0%, transparent 45%),
+    radial-gradient(ellipse 60% 90% at 50% 50%, rgba(26, 36, 16, 0.3) 0%, transparent 40%),
+    /* Layer 3: Subtle texture */
+    radial-gradient(ellipse 40% 50% at 10% 60%, rgba(74, 93, 35, 0.3) 0%, transparent 35%),
+    radial-gradient(ellipse 50% 40% at 90% 40%, rgba(92, 64, 51, 0.25) 0%, transparent 30%);
+  background-color: #1a2410;
+  background-size: 100% 100%;
+}
+
+/* Woodland Camouflage Alternative - Smoother version */
+.woodland-camo {
+  background: 
+    linear-gradient(145deg, 
+      #283618 0%, 
+      #1a2410 20%, 
+      #4a5d23 40%,
+      #283618 60%,
+      #5c4033 80%,
+      #1a2410 100%),
+    radial-gradient(ellipse 100% 100% at 25% 25%, rgba(74, 93, 35, 0.4) 0%, transparent 50%),
+    radial-gradient(ellipse 80% 80% at 75% 75%, rgba(92, 64, 51, 0.3) 0%, transparent 50%);
+  background-color: #1a2410;
+}
+
 /* Leaflet container dark theme */
 .leaflet-container {
   background: #0f172a !important;

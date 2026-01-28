@@ -27,6 +27,7 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any, Tuple
 from dataclasses import dataclass
 from enum import Enum
+from app.core.config import settings
 
 # GPU acceleration support
 try:
@@ -73,10 +74,10 @@ class JanusAIService:
     """
     
     def __init__(self):
-        # AI Model Configuration - JANUS PRO 7B as CORE AI ENGINE
-        self.provider = AIProvider.OLLAMA
-        self.model_name = "janus:latest"  # JANUS PRO 7B - Core tactical AI model
-        self.ollama_url = "http://host.docker.internal:11434"  # Docker to host
+        # AI Model Configuration - Configurable via env settings
+        self.provider = AIProvider(settings.AI_PROVIDER) if settings.AI_PROVIDER in [e.value for e in AIProvider] else AIProvider.OLLAMA
+        self.model_name = settings.JANUS_MODEL_NAME
+        self.ollama_url = settings.OLLAMA_BASE_URL
         self.lm_studio_url = "http://host.docker.internal:1234"
         
         # GPU Configuration for Ollama - Optimized for RTX 4070 (8GB VRAM)
@@ -737,6 +738,470 @@ PROVIDE TACTICAL RECOMMENDATION:"""
             "gpu_accelerated": recommendation.gpu_accelerated,
             "model": "JANUS_PRO_7B",
             "timestamp": recommendation.timestamp.isoformat()
+        }
+
+    async def analyze_vehicle_telemetry(self, telemetry: Dict[str, Any], 
+                                        vehicle_info: Dict[str, Any],
+                                        route_info: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """
+        DEEP AI ANALYSIS of vehicle telemetry using JANUS PRO 7B.
+        
+        Analyzes:
+        - Engine health patterns
+        - Fuel efficiency optimization
+        - Driver fatigue assessment
+        - Predictive maintenance needs
+        - Tactical situation awareness
+        - Environmental adaptations
+        """
+        # Build comprehensive analysis prompt
+        system_prompt = """You are JANUS PRO 7B, the core tactical AI for Indian Army transport operations.
+You analyze vehicle telemetry data and provide SPECIFIC, ACTIONABLE recommendations.
+You must be precise, military-focused, and safety-conscious.
+Your analysis should include:
+1. IMMEDIATE CONCERNS - Critical issues requiring action NOW
+2. PREDICTIVE ALERTS - Issues likely to develop based on patterns
+3. OPTIMIZATION SUGGESTIONS - Ways to improve efficiency/safety
+4. TACTICAL RECOMMENDATIONS - Military operation-specific advice
+
+Format your response as structured analysis with clear priorities."""
+
+        analysis_prompt = f"""Analyze this military vehicle telemetry:
+
+VEHICLE: {vehicle_info.get('name', 'Unknown')} ({vehicle_info.get('type', 'Transport')})
+OPERATION ZONE: {vehicle_info.get('operation_zone', 'GENERAL')}
+
+REAL-TIME TELEMETRY:
+- Speed: {telemetry.get('velocity_kmh', 0):.1f} km/h
+- Engine RPM: {telemetry.get('engine_rpm', 0)}
+- Engine Temperature: {telemetry.get('engine_temp_c', 0):.1f}°C
+- Engine Load: {telemetry.get('engine_load_pct', 0):.1f}%
+- Fuel Level: {telemetry.get('fuel_percent', 0):.1f}%
+- Fuel Consumption: {telemetry.get('fuel_flow_lph', 0):.1f} L/hr
+- Range Remaining: {telemetry.get('range_remaining_km', 0):.0f} km
+- Altitude: {telemetry.get('altitude_m', 0):.0f} m
+- Gradient: {telemetry.get('gradient_deg', 0):.1f}°
+- Driver Fatigue: {telemetry.get('driver_fatigue_pct', 0):.0f}%
+- Visibility: {telemetry.get('visibility_m', 10000):.0f} m
+- Ambient Temperature: {telemetry.get('ambient_temp_c', 25):.1f}°C
+- Tire Pressure Avg: {np.mean(telemetry.get('tire_pressures_psi', [35,35,35,35])):.1f} PSI
+- Brake Temp Avg: {np.mean(telemetry.get('brake_temps_c', [80,80,80,80])):.0f}°C
+- Battery: {telemetry.get('battery_voltage', 24):.1f}V / {telemetry.get('battery_soc_pct', 95):.0f}%
+
+ROUTE CONTEXT: {route_info.get('name', 'Unknown route') if route_info else 'Not on specific route'}
+TERRAIN: {route_info.get('terrain_type', 'Mixed') if route_info else 'Unknown'}
+THREAT LEVEL: {route_info.get('risk_level', 'UNKNOWN') if route_info else vehicle_info.get('threat_level', 'UNKNOWN')}
+
+Provide SPECIFIC recommendations based on this data. Focus on:
+1. Any immediate safety concerns
+2. Predictive maintenance needs
+3. Fuel/efficiency optimization
+4. Crew welfare recommendations
+5. Tactical operation suggestions"""
+
+        # Try real AI first
+        if await self.check_ai_availability():
+            ai_response = await self._call_ai_model(analysis_prompt, system_prompt)
+            if ai_response:
+                return {
+                    "analysis_type": "JANUS_PRO_7B_DEEP_ANALYSIS",
+                    "generated_by": "JANUS_AI_ENGINE",
+                    "gpu_accelerated": True,
+                    "model": self.model_name,
+                    "confidence": 0.92,
+                    "raw_analysis": ai_response,
+                    "recommendations": self._parse_ai_recommendations(ai_response, telemetry),
+                    "threat_assessment": self._assess_threat_from_telemetry(telemetry),
+                    "timestamp": datetime.utcnow().isoformat()
+                }
+        
+        # Intelligent heuristic fallback
+        return await self._heuristic_telemetry_analysis(telemetry, vehicle_info, route_info)
+    
+    def _parse_ai_recommendations(self, ai_response: str, telemetry: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Parse AI response into structured recommendations."""
+        recommendations = []
+        
+        # Extract key points from AI response
+        lines = ai_response.split('\n')
+        current_priority = "MEDIUM"
+        
+        for line in lines:
+            line = line.strip()
+            if not line or len(line) < 10:
+                continue
+            
+            # Detect priority levels
+            if any(kw in line.upper() for kw in ['CRITICAL', 'IMMEDIATE', 'URGENT', 'DANGER']):
+                current_priority = "CRITICAL"
+            elif any(kw in line.upper() for kw in ['WARNING', 'CAUTION', 'ALERT']):
+                current_priority = "HIGH"
+            elif any(kw in line.upper() for kw in ['RECOMMEND', 'SUGGEST', 'CONSIDER']):
+                current_priority = "MEDIUM"
+            
+            # Extract actionable items
+            if any(kw in line.upper() for kw in ['REDUCE', 'INCREASE', 'STOP', 'CHECK', 'MONITOR', 
+                                                   'PLAN', 'SCHEDULE', 'AVOID', 'MAINTAIN']):
+                recommendations.append({
+                    "text": line[:200],
+                    "priority": current_priority,
+                    "source": "JANUS_AI"
+                })
+        
+        return recommendations[:10]  # Top 10 recommendations
+    
+    def _assess_threat_from_telemetry(self, telemetry: Dict[str, Any]) -> Dict[str, Any]:
+        """Assess overall threat level from telemetry patterns."""
+        threat_score = 0
+        factors = []
+        
+        # Engine health
+        engine_temp = telemetry.get('engine_temp_c', 80)
+        if engine_temp > 110:
+            threat_score += 30
+            factors.append(f"ENGINE OVERHEAT: {engine_temp:.0f}°C")
+        elif engine_temp > 95:
+            threat_score += 15
+            factors.append(f"Engine temperature elevated: {engine_temp:.0f}°C")
+        
+        # Fuel critical
+        fuel = telemetry.get('fuel_percent', 100)
+        if fuel < 15:
+            threat_score += 25
+            factors.append(f"FUEL CRITICAL: {fuel:.0f}%")
+        elif fuel < 30:
+            threat_score += 10
+            factors.append(f"Low fuel: {fuel:.0f}%")
+        
+        # Driver fatigue
+        fatigue = telemetry.get('driver_fatigue_pct', 0)
+        if fatigue > 70:
+            threat_score += 25
+            factors.append(f"DRIVER FATIGUE HIGH: {fatigue:.0f}%")
+        elif fatigue > 50:
+            threat_score += 10
+            factors.append(f"Driver fatigue elevated: {fatigue:.0f}%")
+        
+        # Visibility
+        visibility = telemetry.get('visibility_m', 10000)
+        if visibility < 200:
+            threat_score += 20
+            factors.append(f"POOR VISIBILITY: {visibility:.0f}m")
+        elif visibility < 1000:
+            threat_score += 10
+            factors.append(f"Reduced visibility: {visibility:.0f}m")
+        
+        # Brake temperature (overheated brakes = danger)
+        brake_temps = telemetry.get('brake_temps_c', [80, 80, 80, 80])
+        max_brake = max(brake_temps) if brake_temps else 80
+        if max_brake > 400:
+            threat_score += 25
+            factors.append(f"BRAKE OVERHEAT: {max_brake:.0f}°C")
+        elif max_brake > 250:
+            threat_score += 10
+            factors.append(f"Brake temperature high: {max_brake:.0f}°C")
+        
+        # Battery
+        battery = telemetry.get('battery_voltage', 24)
+        if battery < 22:
+            threat_score += 15
+            factors.append(f"Low battery: {battery:.1f}V")
+        
+        # Altitude (high altitude = additional stress)
+        altitude = telemetry.get('altitude_m', 0)
+        if altitude > 4500:
+            threat_score += 15
+            factors.append(f"EXTREME ALTITUDE: {altitude:.0f}m - Crew/engine stress")
+        elif altitude > 3500:
+            threat_score += 5
+            factors.append(f"High altitude operations: {altitude:.0f}m")
+        
+        # Determine threat level
+        if threat_score >= 50:
+            level = "CRITICAL"
+        elif threat_score >= 30:
+            level = "HIGH"
+        elif threat_score >= 15:
+            level = "MEDIUM"
+        else:
+            level = "LOW"
+        
+        return {
+            "threat_level": level,
+            "threat_score": threat_score,
+            "factors": factors,
+            "vehicle_status": "DEGRADED" if threat_score >= 30 else "OPERATIONAL"
+        }
+    
+    async def _heuristic_telemetry_analysis(self, telemetry: Dict[str, Any],
+                                            vehicle_info: Dict[str, Any],
+                                            route_info: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+        """Intelligent heuristic analysis when Janus AI is unavailable."""
+        recommendations = []
+        threat = self._assess_threat_from_telemetry(telemetry)
+        
+        # Fuel analysis
+        fuel = telemetry.get('fuel_percent', 100)
+        range_km = telemetry.get('range_remaining_km', 500)
+        if fuel < 20:
+            recommendations.append({
+                "text": f"🔴 FUEL CRITICAL at {fuel:.0f}% - Only {range_km:.0f}km range. Immediate refuel required.",
+                "priority": "CRITICAL",
+                "source": "HEURISTIC_ENGINE"
+            })
+        elif fuel < 40:
+            recommendations.append({
+                "text": f"🟡 Fuel at {fuel:.0f}% ({range_km:.0f}km range) - Plan refueling within 50km",
+                "priority": "HIGH",
+                "source": "HEURISTIC_ENGINE"
+            })
+        else:
+            recommendations.append({
+                "text": f"✅ Fuel status nominal at {fuel:.0f}% - Estimated range: {range_km:.0f}km",
+                "priority": "INFO",
+                "source": "HEURISTIC_ENGINE"
+            })
+        
+        # Engine analysis
+        engine_temp = telemetry.get('engine_temp_c', 80)
+        rpm = telemetry.get('engine_rpm', 1500)
+        load = telemetry.get('engine_load_pct', 50)
+        
+        if engine_temp > 110:
+            recommendations.append({
+                "text": f"🔴 ENGINE OVERHEAT at {engine_temp:.0f}°C - STOP immediately, allow cooldown",
+                "priority": "CRITICAL",
+                "source": "HEURISTIC_ENGINE"
+            })
+        elif engine_temp > 95:
+            recommendations.append({
+                "text": f"🟡 Engine running hot at {engine_temp:.0f}°C - Reduce load, check coolant",
+                "priority": "HIGH",
+                "source": "HEURISTIC_ENGINE"
+            })
+        elif engine_temp >= 75 and engine_temp <= 95:
+            recommendations.append({
+                "text": f"✅ Engine temp optimal at {engine_temp:.0f}°C | RPM: {rpm} | Load: {load:.0f}%",
+                "priority": "INFO",
+                "source": "HEURISTIC_ENGINE"
+            })
+        
+        # Driver welfare
+        fatigue = telemetry.get('driver_fatigue_pct', 0)
+        if fatigue > 70:
+            recommendations.append({
+                "text": f"🔴 DRIVER FATIGUE CRITICAL at {fatigue:.0f}% - MANDATORY rest halt required",
+                "priority": "CRITICAL",
+                "source": "HEURISTIC_ENGINE"
+            })
+        elif fatigue > 40:
+            rest_in = int(60 - fatigue * 0.7)
+            recommendations.append({
+                "text": f"🟡 Driver fatigue at {fatigue:.0f}% - Schedule rest within {rest_in} minutes",
+                "priority": "HIGH",
+                "source": "HEURISTIC_ENGINE"
+            })
+        
+        # Altitude awareness
+        altitude = telemetry.get('altitude_m', 0)
+        if altitude > 4500:
+            recommendations.append({
+                "text": f"🏔️ EXTREME ALTITUDE {altitude:.0f}m - Monitor crew for hypoxia, check O₂",
+                "priority": "HIGH",
+                "source": "HEURISTIC_ENGINE"
+            })
+        elif altitude > 3500:
+            recommendations.append({
+                "text": f"🏔️ High altitude ops at {altitude:.0f}m - Reduced engine performance expected",
+                "priority": "MEDIUM",
+                "source": "HEURISTIC_ENGINE"
+            })
+        
+        # Visibility
+        visibility = telemetry.get('visibility_m', 10000)
+        if visibility < 300:
+            recommendations.append({
+                "text": f"🔴 POOR VISIBILITY {visibility:.0f}m - Reduce speed, use fog lights, increase spacing",
+                "priority": "CRITICAL",
+                "source": "HEURISTIC_ENGINE"
+            })
+        elif visibility < 1000:
+            recommendations.append({
+                "text": f"🟡 Reduced visibility {visibility:.0f}m - Maintain increased following distance",
+                "priority": "HIGH",
+                "source": "HEURISTIC_ENGINE"
+            })
+        
+        # Speed and terrain
+        speed = telemetry.get('velocity_kmh', 0)
+        gradient = telemetry.get('gradient_deg', 0)
+        if gradient > 15:
+            recommendations.append({
+                "text": f"⛰️ Steep grade {gradient:.0f}° - Use low gear, engine brake. Speed: {speed:.0f}km/h",
+                "priority": "MEDIUM",
+                "source": "HEURISTIC_ENGINE"
+            })
+        elif gradient < -10:
+            recommendations.append({
+                "text": f"⬇️ Steep descent {abs(gradient):.0f}° - Control speed with engine brake",
+                "priority": "MEDIUM",
+                "source": "HEURISTIC_ENGINE"
+            })
+        
+        # Brake analysis
+        brake_temps = telemetry.get('brake_temps_c', [80, 80, 80, 80])
+        max_brake = max(brake_temps) if brake_temps else 80
+        if max_brake > 300:
+            recommendations.append({
+                "text": f"🔴 BRAKES OVERHEATING at {max_brake:.0f}°C - Stop, allow cooling",
+                "priority": "CRITICAL",
+                "source": "HEURISTIC_ENGINE"
+            })
+        
+        # Zone-specific tactical advice
+        zone = vehicle_info.get('operation_zone', 'GENERAL')
+        if zone in ['KASHMIR', 'LADAKH']:
+            recommendations.append({
+                "text": f"🎯 Kashmir/Ladakh Ops: Maintain IED awareness, convoy discipline, radio protocols",
+                "priority": "TACTICAL",
+                "source": "HEURISTIC_ENGINE"
+            })
+        elif zone == 'SIACHEN':
+            recommendations.append({
+                "text": f"❄️ Siachen Ops: Monitor frostbite risk, keep heaters operational, crew welfare priority",
+                "priority": "TACTICAL",
+                "source": "HEURISTIC_ENGINE"
+            })
+        
+        return {
+            "analysis_type": "HEURISTIC_ANALYSIS",
+            "generated_by": "TACTICAL_HEURISTIC_ENGINE",
+            "gpu_accelerated": False,
+            "model": "RULE_BASED_EXPERT_SYSTEM",
+            "confidence": 0.75,
+            "raw_analysis": None,
+            "recommendations": recommendations,
+            "threat_assessment": threat,
+            "timestamp": datetime.utcnow().isoformat(),
+            "note": "Janus AI unavailable - using expert heuristic system"
+        }
+
+    async def analyze_route(self, route: Dict[str, Any],
+                           active_threats: List[Dict[str, Any]],
+                           weather_conditions: Dict[str, Any],
+                           convoy_info: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """
+        DEEP AI ANALYSIS of a route for tactical operations.
+        """
+        system_prompt = """You are JANUS PRO 7B, analyzing military transport routes.
+Provide tactical assessment of route safety, optimal timing, and specific hazards.
+Focus on: threat zones, choke points, weather impact, and alternative options."""
+
+        route_prompt = f"""Analyze this military supply route:
+
+ROUTE: {route.get('name', 'Unknown')}
+DISTANCE: {route.get('total_distance_km', 0):.1f} km
+TERRAIN: {route.get('terrain_type', 'Mixed')}
+ALTITUDE RANGE: {route.get('min_altitude_m', 0):.0f}m - {route.get('max_altitude_m', 0):.0f}m
+CURRENT RISK LEVEL: {route.get('risk_level', 'Unknown')}
+
+ACTIVE THREATS ON ROUTE: {len(active_threats)}
+{json.dumps(active_threats[:5], indent=2) if active_threats else 'None reported'}
+
+WEATHER: {weather_conditions.get('status', 'Unknown')}
+VISIBILITY: {weather_conditions.get('visibility_km', 10)} km
+
+Provide:
+1. Overall route safety assessment
+2. Specific hazard zones
+3. Optimal timing for convoy movement
+4. Recommended precautions
+5. Alternative route suggestions if available"""
+
+        if await self.check_ai_availability():
+            ai_response = await self._call_ai_model(route_prompt, system_prompt)
+            if ai_response:
+                return {
+                    "analysis_type": "JANUS_ROUTE_ANALYSIS",
+                    "generated_by": "JANUS_AI_ENGINE",
+                    "gpu_accelerated": True,
+                    "route_id": route.get('id'),
+                    "route_name": route.get('name'),
+                    "raw_analysis": ai_response,
+                    "recommendations": self._parse_ai_recommendations(ai_response, {}),
+                    "timestamp": datetime.utcnow().isoformat()
+                }
+        
+        # Heuristic fallback for route analysis
+        return self._heuristic_route_analysis(route, active_threats, weather_conditions)
+    
+    def _heuristic_route_analysis(self, route: Dict[str, Any],
+                                  active_threats: List[Dict[str, Any]],
+                                  weather: Dict[str, Any]) -> Dict[str, Any]:
+        """Heuristic route analysis fallback."""
+        recommendations = []
+        risk_level = route.get('risk_level', 'LOW').upper()
+        terrain = route.get('terrain_type', 'MIXED').upper()
+        distance = route.get('total_distance_km', 100)
+        
+        # Base risk assessment
+        if risk_level == 'CRITICAL':
+            recommendations.append({
+                "text": f"🔴 ROUTE RISK CRITICAL - Consider alternative routing or enhanced escort",
+                "priority": "CRITICAL",
+                "source": "HEURISTIC_ENGINE"
+            })
+        elif risk_level == 'HIGH':
+            recommendations.append({
+                "text": f"🟡 Route risk HIGH - Increase spacing, maintain vigilance, QRF on standby",
+                "priority": "HIGH",
+                "source": "HEURISTIC_ENGINE"
+            })
+        
+        # Terrain-specific
+        if 'MOUNTAIN' in terrain:
+            recommendations.append({
+                "text": f"🏔️ Mountainous terrain - Expect reduced speeds, increased fuel consumption",
+                "priority": "MEDIUM",
+                "source": "HEURISTIC_ENGINE"
+            })
+        
+        # Weather impact
+        weather_status = weather.get('status', 'CLEAR').upper()
+        if weather_status in ['FOG', 'SNOW', 'HEAVY_RAIN']:
+            recommendations.append({
+                "text": f"⚠️ Weather alert: {weather_status} - Adjust convoy timing or delay movement",
+                "priority": "HIGH",
+                "source": "HEURISTIC_ENGINE"
+            })
+        
+        # Threat warnings
+        if active_threats:
+            recommendations.append({
+                "text": f"⚠️ {len(active_threats)} active threats on route - Review threat briefs before departure",
+                "priority": "HIGH",
+                "source": "HEURISTIC_ENGINE"
+            })
+        
+        # Logistics
+        fuel_stops = max(1, int(distance / 80))
+        rest_stops = max(1, int(distance / 150))
+        recommendations.append({
+            "text": f"📍 Route logistics: {distance:.0f}km | Fuel stops: {fuel_stops} | Rest halts: {rest_stops}",
+            "priority": "INFO",
+            "source": "HEURISTIC_ENGINE"
+        })
+        
+        return {
+            "analysis_type": "HEURISTIC_ROUTE_ANALYSIS",
+            "generated_by": "TACTICAL_HEURISTIC_ENGINE",
+            "gpu_accelerated": False,
+            "route_id": route.get('route_id') or route.get('id'),
+            "route_name": route.get('name'),
+            "raw_analysis": None,
+            "recommendations": recommendations,
+            "timestamp": datetime.utcnow().isoformat(),
+            "note": "Janus AI unavailable - using heuristic analysis"
         }
 
 

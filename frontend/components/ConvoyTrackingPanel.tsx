@@ -758,7 +758,8 @@ export default function ConvoyTrackingPanel() {
     fetchConvoys();
     const interval = setInterval(fetchConvoys, 30000);
     return () => clearInterval(interval);
-  }, [fetchConvoys]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (selectedConvoyId) {

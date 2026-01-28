@@ -150,15 +150,15 @@ export default function DashboardOverlay() {
 
     return (
         <>
-            {/* FAB (Floating Action Button) - Bottom Left */}
+            {/* FAB (Floating Action Button) - Bottom Right corner, safe position */}
             <div style={{
                 position: 'fixed',
-                bottom: '80px',
-                left: '280px',
+                bottom: '20px',
+                right: '20px',
                 zIndex: 2000,
                 display: 'flex',
                 flexDirection: 'column',
-                alignItems: 'start',
+                alignItems: 'end',
                 gap: '10px'
             }}>
                 {isOpen && (

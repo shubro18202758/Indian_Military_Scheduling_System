@@ -15,6 +15,11 @@ class Settings(BaseSettings):
     POSTGRES_SERVER: str = "localhost"
     POSTGRES_PORT: str = "5432"
     POSTGRES_DB: str = "transport_ops"
+
+    # AI Settings
+    JANUS_MODEL_NAME: str = "deepseek-janus-pro-7b"  # Default to what user wants
+    OLLAMA_BASE_URL: str = "http://host.docker.internal:11434"
+    AI_PROVIDER: str = "ollama"
     
     @property
     def DATABASE_URL(self) -> str:

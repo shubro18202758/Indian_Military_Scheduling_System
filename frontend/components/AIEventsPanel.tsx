@@ -356,11 +356,7 @@ export default function AIEventsPanel() {
                   onChange={(e) => setSelectedScenario(e.target.value)}
                   className="bg-gray-800 border border-gray-600 rounded px-2 py-1.5 text-sm text-white"
                 >
-                  <option value="demo_showcase">Demo Showcase</option>
-                  <option value="winter_ops">Winter Operations</option>
-                  <option value="security_alert">Security Alert</option>
-                  <option value="monsoon_season">Monsoon Season</option>
-                  <option value="resilience_test">Stress Test</option>
+                  <option value="kashmir_ops">Kashmir Operations</option>
                 </select>
                 <select
                   value={selectedIntensity}

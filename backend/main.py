@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.core.database import engine, Base
-from app.api.endpoints import assets, convoys, routes, optimization, tcps, transit_camps, obstacles, vehicles, advanced, tracking
+from app.api.endpoints import assets, convoys, routes, optimization, tcps, transit_camps, obstacles, vehicles, advanced, tracking, scheduling, deliverables
 
 # Register all models
 import app.models.asset 
@@ -13,6 +13,8 @@ import app.models.transit_camp
 import app.models.convoy_asset
 import app.models.obstacle  # AI Obstacle/Countermeasure models
 import app.models.tracking  # Military convoy tracking models
+import app.models.command_centre  # Command Centre models
+import app.models.load_management  # AI Load Management models
 
 # Initialize the FastAPI application
 app = FastAPI(
@@ -55,6 +57,24 @@ app.include_router(obstacles.router, prefix=f"{settings.API_V1_STR}/obstacles", 
 app.include_router(vehicles.router, prefix=f"{settings.API_V1_STR}/vehicles", tags=["Vehicle Simulation"])
 app.include_router(advanced.router, prefix=f"{settings.API_V1_STR}/advanced", tags=["Advanced AI Operations"])
 app.include_router(tracking.router, prefix=f"{settings.API_V1_STR}/tracking", tags=["Military Convoy Tracking"])
+
+# AI Load Management Router
+from app.api.endpoints import ai_load_management
+app.include_router(ai_load_management.router, prefix=f"{settings.API_V1_STR}", tags=["AI Load Management"])
+
+# Scheduling Router
+app.include_router(scheduling.router, prefix=f"{settings.API_V1_STR}/scheduling", tags=["Scheduling"])
+
+# Military Assets Router
+from app.api.endpoints import military_assets
+app.include_router(military_assets.router, prefix=f"{settings.API_V1_STR}/military-assets", tags=["Military Assets"])
+
+# Command Centre Router
+from app.api.endpoints import command_centre
+app.include_router(command_centre.router, prefix=f"{settings.API_V1_STR}/command-centre", tags=["Command Centre"])
+
+# Deliverables Router
+app.include_router(deliverables.router, prefix=f"{settings.API_V1_STR}/deliverables", tags=["Deliverables"])
 
 # Basic Health Check Endpoint
 @app.get("/")

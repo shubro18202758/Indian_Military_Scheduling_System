@@ -118,49 +118,34 @@ async def get_simulated_vehicles(
         vehicles.append({
             "id": asset.id,
             "name": asset.name,
-            "callsign": asset.callsign,
             "asset_type": asset.asset_type,
-            "category": asset.category,
             
             # Position
             "lat": asset.current_lat,
             "lng": asset.current_long,
-            "bearing": asset.bearing,
+            "bearing": asset.bearing or 0,
             
-            # Movement
-            "speed_kmh": state.get("current_speed_kmh", 0),
+            # Movement - USE DATABASE VALUES (updated by physics engine)
+            "speed_kmh": asset.current_speed or 0,
             "status": state.get("status", "UNKNOWN"),
             "formation_position": state.get("formation_position", 0),
             
-            # Fuel & Range
-            "fuel_percent": asset.fuel_status,
-            "fuel_type": asset.fuel_type,
-            "range_remaining_km": (asset.fuel_status / 100) * (asset.fuel_capacity_liters or 200) * (asset.fuel_consumption_km_per_liter or 3),
+            # Fuel & Range - USE DATABASE VALUES
+            "fuel_percent": asset.fuel_status or 100,
+            "range_remaining_km": asset.range_remaining_km or ((asset.fuel_status or 100) / 100) * 600,
             
             # Capacity
-            "capacity_tons": asset.capacity_tons,
-            "max_personnel": asset.max_personnel,
-            
-            # Performance
-            "max_speed_kmh": asset.max_speed_kmh,
-            
-            # Communication
-            "has_radio": asset.has_radio,
-            "has_gps": asset.has_gps,
+            "capacity_tons": asset.capacity_tons or 0,
             
             # Assignment
-            "convoy_id": asset.current_convoy_id,
-            "assigned_unit": asset.assigned_unit,
-            
-            # Maintenance
-            "total_km": asset.total_km_traveled,
-            "last_maintenance": asset.last_maintenance_date.isoformat() if asset.last_maintenance_date else None,
+            "convoy_id": asset.convoy_id,
             
             # Obstacle Response
             "obstacle_response": state.get("obstacle_response")
         })
     
     return vehicles
+
 
 
 import random

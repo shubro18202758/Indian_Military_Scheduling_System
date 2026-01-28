@@ -46,6 +46,9 @@ services:
       - POSTGRES_PASSWORD=password
       - POSTGRES_DB=transport_ops
       - REDIS_URL=redis://redis:6379
+      - JANUS_MODEL_NAME=janus:latest
+      - OLLAMA_BASE_URL=http://host.docker.internal:11434
+      - AI_PROVIDER=ollama
     depends_on:
       db:
         condition: service_healthy

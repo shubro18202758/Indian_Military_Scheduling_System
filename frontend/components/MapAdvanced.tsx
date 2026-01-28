@@ -260,42 +260,56 @@ export default function MapAdvanced({
       attributionControl: false
     });
 
-    // Base layers - Using reliable tile providers
+    // Base layers - Using reliable tile providers with error handling
     const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
-      attribution: '© OpenStreetMap'
-    });
+      attribution: '© OpenStreetMap',
+      updateWhenIdle: true,
+      keepBuffer: 4
+    }).addTo(map); // OSM as default for reliability
 
     const cartoDbDark = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
       maxZoom: 19,
-      attribution: '© CartoDB'
-    }).addTo(map); // Dark mode as default
+      attribution: '© CartoDB',
+      updateWhenIdle: true,
+      keepBuffer: 4
+    });
 
     const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
       maxZoom: 19,
-      attribution: '© Esri'
+      attribution: '© Esri',
+      updateWhenIdle: true,
+      keepBuffer: 4
     });
 
     const topoLayer = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
       maxZoom: 17,
-      attribution: '© OpenTopoMap'
+      attribution: '© OpenTopoMap',
+      updateWhenIdle: true,
+      keepBuffer: 4
     });
 
     const baseMaps = {
-      "🌙 Tactical Dark": cartoDbDark,
       "🗺️ Street Map": osmLayer,
+      "🌙 Tactical Dark": cartoDbDark,
       "🛰️ Satellite": satelliteLayer,
       "🏔️ Topographic": topoLayer
     };
+
+    // Fallback if tiles fail to load
+    osmLayer.on('tileerror', () => {
+      if (!map.hasLayer(cartoDbDark)) cartoDbDark.addTo(map);
+    });
 
     L.control.layers(baseMaps, undefined, { position: 'bottomright' }).addTo(map);
 
     mapRef.current = map;
 
-    // Invalidate size after a short delay to ensure proper rendering
-    setTimeout(() => {
-      map.invalidateSize();
-    }, 100);
+    // Invalidate size after delays to ensure proper rendering with conditional display
+    setTimeout(() => map.invalidateSize(), 100);
+    setTimeout(() => map.invalidateSize(), 300);
+    setTimeout(() => map.invalidateSize(), 500);
+    setTimeout(() => map.invalidateSize(), 1000);
 
     // Also invalidate on window resize
     const handleResize = () => map.invalidateSize();
@@ -753,7 +767,7 @@ export default function MapAdvanced({
         style={{
           width: '100%',
           height: '100%',
-          background: '#020617'
+          background: 'transparent'
         }}
       />
 

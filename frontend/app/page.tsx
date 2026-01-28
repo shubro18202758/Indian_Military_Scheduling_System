@@ -5,6 +5,12 @@ import dynamic from 'next/dynamic';
 import CommandCenter from '@/components/CommandCenter';
 import CommandCenterAdvanced from '@/components/CommandCenterAdvanced';
 import DashboardOverlay from '@/components/DashboardOverlay';
+import CommandCentre from '@/components/CommandCentre';
+import MilitaryAssetsPanel from '@/components/MilitaryAssetsPanel';
+import SchedulingCommandCenter from '@/components/SchedulingCommandCenter';
+import UnifiedDataBridge from '@/components/UnifiedDataBridge';
+import AILoadManagementPanel from '@/components/AILoadManagementPanel';
+import DeliverablesPanel from '@/components/DeliverablesPanel';
 
 // Dynamic imports for maps (must be client-side only)
 const MapComponent = dynamic(() => import('@/components/Map'), {
@@ -76,7 +82,11 @@ interface ScenarioEvent {
   status: string;
 }
 
+// Tab type for navigation
+type TabType = 'MAP' | 'COMMAND_CENTRE' | 'SCHEDULING' | 'MILITARY_ASSETS' | 'AI_LOAD_MANAGEMENT' | 'DELIVERABLES';
+
 export default function Home() {
+  const [activeTab, setActiveTab] = useState<TabType>('MAP');
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [routes, setRoutes] = useState<Route[]>([]);
   const [advancedRoutes, setAdvancedRoutes] = useState<AdvancedRoute[]>([]);
@@ -139,38 +149,81 @@ export default function Home() {
     }
   }, []);
 
+  // Simulation tick - actually moves vehicles in backend
+  const simulationTick = useCallback(async () => {
+    try {
+      if (advancedMode) {
+        await fetch(`${API_V1}/advanced/simulation/tick-advanced`, { method: 'POST' });
+      } else {
+        await fetch(`${API_V1}/vehicles/simulation/tick`, { method: 'POST' });
+      }
+    } catch (e) {
+      // Silent fail - simulation may not be running yet
+    }
+  }, [advancedMode]);
+
+  // Start demo automatically
+  const startDemoIfNeeded = useCallback(async () => {
+    try {
+      // Check if simulation is already running
+      const statusRes = await fetch(`${API_V1}/vehicles/status`);
+      if (statusRes.ok) {
+        const status = await statusRes.json();
+        if (status.active_vehicles === 0) {
+          // Start the demo
+          await fetch(`${API_V1}/vehicles/start-demo?speed_multiplier=2`, { method: 'POST' });
+          console.log('[AUTO] Demo started automatically');
+        }
+      }
+    } catch (e) {
+      // Try to start anyway
+      try {
+        await fetch(`${API_V1}/vehicles/start-demo?speed_multiplier=2`, { method: 'POST' });
+      } catch (e2) {
+        // Silent fail
+      }
+    }
+  }, []);
+
   useEffect(() => {
     // Mark as client-side and set initial time
     setIsClient(true);
     setCurrentTime(new Date());
-    
+
+    // Auto-start demo
+    startDemoIfNeeded();
+
     fetchVehicles();
     fetchRoutes();
-    
+
     if (advancedMode) {
       fetchAdvancedRoutes();
       fetchScenarioEvents();
     }
-    
-    // Poll for vehicle updates (frequent for smooth movement)
-    const interval = setInterval(() => {
+
+    // Poll for vehicle updates AND tick simulation (frequent for smooth movement)
+    const interval = setInterval(async () => {
+      // Tick the simulation to move vehicles
+      await simulationTick();
+      // Then fetch updated positions
       fetchVehicles();
       if (advancedMode) {
         fetchAdvancedRoutes();
         fetchScenarioEvents();
       }
     }, 500); // 500ms for smooth animation
-    
+
     // Clock update
     const clockInterval = setInterval(() => {
       setCurrentTime(new Date());
     }, 1000);
-    
+
     return () => {
       clearInterval(interval);
       clearInterval(clockInterval);
     };
-  }, [fetchVehicles, fetchRoutes, fetchAdvancedRoutes, fetchScenarioEvents, advancedMode]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [advancedMode]);
 
   // Convert vehicles to assets format for map compatibility
   const vehiclesAsAssets = vehicles.map(v => ({
@@ -196,32 +249,131 @@ export default function Home() {
       fontFamily: "'Segoe UI', system-ui, sans-serif",
       overflow: 'hidden'
     }}>
-      {/* MAP - Full Screen Background */}
-      <div style={{ 
-        position: 'absolute', 
-        top: 50, 
-        left: advancedMode ? 360 : 320, 
-        right: advancedMode ? 400 : 384, 
-        bottom: 80, 
-        zIndex: 10,
-        overflow: 'hidden',
-        background: '#0f172a'
-      }}>
-        {advancedMode ? (
-          <MapAdvanced 
-            assets={vehiclesAsAssets} 
-            routes={routes}
-            advancedRoutes={advancedRoutes}
-            selectedRouteId={selectedRouteId}
-            selectedVehicleId={selectedVehicleId}
-            scenarioEvents={scenarioEvents}
-            onRouteClick={(route) => setSelectedRouteId(route.route_id)}
-            onVehicleClick={(asset) => setSelectedVehicleId(asset.id)}
+      {/* MAIN CONTENT - Conditional based on activeTab */}
+      {activeTab === 'MAP' && (
+        <>
+          {/* MAP - Full Screen Background */}
+          <div style={{
+            position: 'absolute',
+            top: 50,
+            left: advancedMode ? 360 : 320,
+            right: advancedMode ? 400 : 384,
+            bottom: 80,
+            zIndex: 10,
+            overflow: 'hidden',
+            background: '#0f172a'
+          }}>
+            {advancedMode ? (
+              <MapAdvanced
+                assets={vehiclesAsAssets}
+                routes={routes}
+                advancedRoutes={advancedRoutes}
+                selectedRouteId={selectedRouteId}
+                selectedVehicleId={selectedVehicleId}
+                scenarioEvents={scenarioEvents}
+                onRouteClick={(route) => setSelectedRouteId(route.route_id)}
+                onVehicleClick={(asset) => setSelectedVehicleId(asset.id)}
+              />
+            ) : (
+              <MapComponent assets={vehiclesAsAssets} routes={routes} />
+            )}
+          </div>
+
+          {/* Unified Data Bridge - Shows sync status and allows convoy selection */}
+          <UnifiedDataBridge
+            position="bottom"
+            onConvoySelect={(id) => {
+              // When convoy selected from unified bridge, update selectedVehicleId
+              // The unified bridge selection is convoy-based, we map to vehicle if needed
+              if (id) {
+                setSelectedVehicleId(id);
+              }
+            }}
           />
-        ) : (
-          <MapComponent assets={vehiclesAsAssets} routes={routes} />
-        )}
-      </div>
+        </>
+      )}
+
+      {/* COMMAND CENTRE TAB */}
+      {activeTab === 'COMMAND_CENTRE' && (
+        <div style={{
+          position: 'absolute',
+          top: 50,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          zIndex: 10,
+          overflow: 'auto',
+          background: '#0a0f0a'
+        }}>
+          <CommandCentre />
+        </div>
+      )}
+
+      {/* SCHEDULING TAB */}
+      {activeTab === 'SCHEDULING' && (
+        <div style={{
+          position: 'absolute',
+          top: 50,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          zIndex: 10,
+          overflow: 'auto',
+          background: '#0a0f0a'
+        }}>
+          <SchedulingCommandCenter />
+        </div>
+      )}
+
+      {/* MILITARY ASSETS TAB */}
+      {activeTab === 'MILITARY_ASSETS' && (
+        <div style={{
+          position: 'absolute',
+          top: 50,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          zIndex: 10,
+          overflow: 'auto',
+          background: '#0a0f0a'
+        }}>
+          <MilitaryAssetsPanel />
+        </div>
+      )}
+
+      {/* AI LOAD MANAGEMENT TAB */}
+      {activeTab === 'AI_LOAD_MANAGEMENT' && (
+        <div style={{
+          position: 'absolute',
+          top: 50,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          zIndex: 10,
+          overflow: 'auto',
+          background: '#0a0f0a',
+          padding: '20px'
+        }}>
+          <AILoadManagementPanel />
+        </div>
+      )}
+
+      {/* DELIVERABLES TAB */}
+      {activeTab === 'DELIVERABLES' && (
+        <div style={{
+          position: 'absolute',
+          top: 50,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          zIndex: 10,
+          overflow: 'auto',
+          background: '#0a0f0a',
+          padding: '20px'
+        }}>
+          <DeliverablesPanel />
+        </div>
+      )}
 
       {/* TOP HEADER BAR - Military Style */}
       <div style={{
@@ -253,21 +405,56 @@ export default function Home() {
             🎖️
           </div>
           <div>
-            <div style={{ 
-              color: '#22c55e', 
-              fontWeight: 'bold', 
+            <div style={{
+              color: '#22c55e',
+              fontWeight: 'bold',
               fontSize: 14,
               letterSpacing: '2px'
             }}>
               INDIAN ARMY
             </div>
-            <div style={{ 
-              color: '#fff', 
+            <div style={{
+              color: '#fff',
               fontSize: 11,
               opacity: 0.8
             }}>
               Transport Command & Control System
             </div>
+          </div>
+
+          {/* Tab Navigation */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginLeft: 30 }}>
+            {[
+              { id: 'MAP' as TabType, label: '🗺️ VEHICLES', icon: '🚛' },
+              { id: 'COMMAND_CENTRE' as TabType, label: '🎖️ COMMAND CENTRE', icon: '🎖️' },
+              { id: 'SCHEDULING' as TabType, label: '📅 SCHEDULING', icon: '📅' },
+              { id: 'MILITARY_ASSETS' as TabType, label: '⚔️ MILITARY ASSETS', icon: '⚔️' },
+              { id: 'AI_LOAD_MANAGEMENT' as TabType, label: '🧠 AI LOAD MGT', icon: '🧠' },
+              { id: 'DELIVERABLES' as TabType, label: '📋 DELIVERABLES', icon: '📋' },
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                style={{
+                  background: activeTab === tab.id
+                    ? 'linear-gradient(135deg, rgba(34, 197, 94, 0.3) 0%, rgba(21, 128, 61, 0.3) 100%)'
+                    : 'rgba(255, 255, 255, 0.05)',
+                  border: activeTab === tab.id
+                    ? '1px solid rgba(34, 197, 94, 0.6)'
+                    : '1px solid rgba(255, 255, 255, 0.1)',
+                  padding: '6px 12px',
+                  borderRadius: 4,
+                  color: activeTab === tab.id ? '#22c55e' : '#9ca3af',
+                  fontSize: 11,
+                  fontWeight: activeTab === tab.id ? 'bold' : 'normal',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  letterSpacing: '0.5px'
+                }}
+              >
+                {tab.label}
+              </button>
+            ))}
           </div>
         </div>
 
@@ -322,20 +509,20 @@ export default function Home() {
         {/* Right - Time & Classification */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
           <div style={{ textAlign: 'right' }}>
-            <div style={{ 
-              color: '#fff', 
-              fontSize: 18, 
+            <div style={{
+              color: '#fff',
+              fontSize: 18,
               fontFamily: 'monospace',
               fontWeight: 'bold'
             }}>
               {currentTime ? currentTime.toLocaleTimeString('en-US', { hour12: false }) : '--:--:--'}
             </div>
             <div style={{ color: '#6b7280', fontSize: 10 }}>
-              {currentTime ? currentTime.toLocaleDateString('en-US', { 
-                weekday: 'short', 
-                day: '2-digit', 
-                month: 'short', 
-                year: 'numeric' 
+              {currentTime ? currentTime.toLocaleDateString('en-US', {
+                weekday: 'short',
+                day: '2-digit',
+                month: 'short',
+                year: 'numeric'
               }) : '--- -- --- ----'}
             </div>
           </div>
@@ -354,31 +541,35 @@ export default function Home() {
         </div>
       </div>
 
-      {/* COMMAND CENTER - Panels */}
-      {advancedMode ? (
-        <CommandCenterAdvanced 
-          onVehicleSelect={(v) => setSelectedVehicleId(v?.id || null)}
-          onRouteSelect={(r) => setSelectedRouteId(r?.route_id || null)}
-          selectedVehicleId={selectedVehicleId}
-        />
-      ) : (
-        <CommandCenter />
+      {/* COMMAND CENTER - Panels (only for MAP tab) */}
+      {activeTab === 'MAP' && (
+        advancedMode ? (
+          <CommandCenterAdvanced
+            onVehicleSelect={(v) => setSelectedVehicleId(v?.id || null)}
+            onRouteSelect={(r) => setSelectedRouteId(r?.route_id || null)}
+            selectedVehicleId={selectedVehicleId}
+          />
+        ) : (
+          <CommandCenter />
+        )
       )}
 
       {/* Dashboard Overlay - FAB for creating assets, convoys, routes */}
-      <DashboardOverlay />
+      {activeTab === 'MAP' && <DashboardOverlay />}
 
       {/* Map Attribution */}
-      <div style={{
-        position: 'absolute',
-        bottom: 5,
-        left: advancedMode ? 365 : 325,
-        fontSize: 10,
-        color: 'rgba(255,255,255,0.3)',
-        zIndex: 10
-      }}>
-        AI-Powered Tactical Awareness System v3.0 {advancedMode ? '| Advanced Multi-Route Mode' : ''}
-      </div>
+      {activeTab === 'MAP' && (
+        <div style={{
+          position: 'absolute',
+          bottom: 5,
+          left: advancedMode ? 365 : 325,
+          fontSize: 10,
+          color: 'rgba(255,255,255,0.3)',
+          zIndex: 10
+        }}>
+          AI-Powered Tactical Awareness System v3.0 {advancedMode ? '| Advanced Multi-Route Mode' : ''}
+        </div>
+      )}
     </div>
   );
 }
